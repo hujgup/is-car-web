@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name="description" content="Front-end for the car project: requests." />
+	<meta name="author" content="Jake Tunaley" />
+	<meta name="reply-to" content="100593584@student.swin.edu.au" />
+	<title>Car Front-End Request Creator</title>
+	<link rel="stylesheet" href="style/ui.css" />
+	<script defer src="script/utils.js"></script>
+	<script defer src="script/ajax.js"></script>
+	<script defer src="script/ui.js"></script>
+</head>
+<body>
+	<h1>Car Front-End Request Creator</h1>
+	<form id="form-global">
+		<fieldset>
+			<legend>Input Mode</legend>
+			<div><input id="mode-json" type="radio" name="mode" value="json" checked /><label for="mode-json"> Raw JSON</label></div>
+			<div><input id="mode-fields" type="radio" name="mode" value="fields" /><label for="mode-fields"> Seperate Fields</label></div>
+		</fieldset>
+		<div><label for="port">Numeric Car ID: </label><input id="port" type="number" min="8080" max="28080" placeholder="8080" /></div>
+	</form>
+	<form id="form-json">
+		<div><textarea id="input-json" rows="20" cols="56">{
+	"maxGridLoad": 80.32,
+	"currentCharge": 0,
+	"chargeCapacity": 100,
+	"chargePerHour": 34,
+	"chargeDrainPerHour": 3.2,
+	"unavailableTimes": [
+		{
+			"lowerBound": {
+				"pivot": "12:34:56",
+				"inclusive": false
+			},
+			"upperBound": {
+				"pivot": "17:12",
+				"inclusive": true
+			}
+		}
+	]
+}</textarea></div>
+		<div><input type="submit" value="Update Constraints" /></div>
+	</form>
+	<form id="form-fields">
+		<!-- TODO -->
+		<p><strong>[NOT DONE - USE RAW JSON INPUT]</strong></p>
+		<div><input type="submit" value="Update Constraints" /></div>
+	</form>
+	<form id="form-force">
+		<div><input type="submit" value="Force Negotiation" /></div>
+	</form>
+</body>
+</html>
