@@ -1,5 +1,10 @@
 "use strict";
-// TODO: Interfaces for JSON data
+function getJsonData(area) {
+    return JSON.parse(area.value);
+}
+function writeJsonData(area, data) {
+    area.value = JSON.stringify(data, undefined, "\t");
+}
 var GlobalForm;
 (function (GlobalForm) {
     var InputType;
@@ -53,7 +58,19 @@ var GlobalForm;
     }
     GlobalForm.setupListeners = setupListeners;
     function updateField(inKey, outEle, json) {
-        outEle.value = json.inKey;
+        outEle.value = json[inKey];
+    }
+    function valueToInput(n, input, noChange) {
+        console.log(n);
+        if (n !== undefined) {
+            input.value = (Math.round(100 * n) / 100).toString();
+            noChange.checked = false;
+        }
+        else {
+            input.value = "";
+            noChange.checked = true;
+        }
+        input.disabled = noChange.checked;
     }
     function switchDisplayedForm(mode, fields, json) {
         var inputType = getInputType(mode);
@@ -65,14 +82,24 @@ var GlobalForm;
             case InputType.FIELDS:
                 mode.formJson.style.display = "none";
                 mode.formFields.style.display = "";
-                var jsonData = JSON.parse(json.value);
-                fields.gridLoad.value = jsonData.maxGridLoad;
-                fields.currentCharge.value = jsonData.currentCharge;
-                fields.maxCharge.value = jsonData.chargeCapacity;
-                fields.chargeRate.value = jsonData.chargePerHour;
-                fields.chargeDrain.value = jsonData.chargeDrainPerHour;
+                var jsonData = getJsonData(json);
+                valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
+                valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
+                valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
+                valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
+                valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
                 Templating.killAll("ut");
-                jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.templateUt(ut, json); });
+                var utCheckedValue = jsonData.unavailableTimes === undefined;
+                if (!utCheckedValue) {
+                    jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.templateUt(ut, json); });
+                }
+                fields.utNoChange.checked = utCheckedValue;
+                fields.utLowValue.disabled = utCheckedValue;
+                fields.utLowInclusive.disabled = utCheckedValue;
+                fields.utHighValue.disabled = utCheckedValue;
+                fields.utHighInclusive.disabled = utCheckedValue;
+                fields.utAddButton.disabled = utCheckedValue;
+                fields.utAddButton.disabled = utCheckedValue;
                 break;
             case InputType.ERR_NONE:
                 alert("ERR: Radio button logic failure (none selected).");
@@ -104,13 +131,29 @@ var FieldsForm;
             callback(value);
         }
     }
-    function change(inEle, outKey, json) {
+    function changeValue(inEle, outKey, json) {
+        getNum(inEle, function (value) {
+            var jsonData = getJsonData(json);
+            jsonData[outKey] = value;
+            writeJsonData(json, jsonData);
+        });
+    }
+    function change(inEle, outKey, dnc, json) {
         inEle.addEventListener("change", function () {
-            getNum(inEle, function (value) {
-                var jsonData = JSON.parse(json.value);
-                jsonData[outKey] = value;
-                json.value = JSON.stringify(jsonData, undefined, "\t");
-            });
+            if (!dnc.checked) {
+                changeValue(inEle, outKey, json);
+            }
+        });
+        dnc.addEventListener("change", function () {
+            inEle.disabled = dnc.checked;
+            if (dnc.checked) {
+                var jsonData = getJsonData(json);
+                delete jsonData[outKey];
+                writeJsonData(json, jsonData);
+            }
+            else {
+                changeValue(inEle, outKey, json);
+            }
         });
     }
     function zeroPad(n) {
@@ -141,39 +184,63 @@ var FieldsForm;
         }, function (id, element, root, parent) {
             if (id === "remove-btn") {
                 element.addEventListener("click", function () {
-                    var jsonData = JSON.parse(json.value);
+                    var jsonData = getJsonData(json);
                     var jsonArr = jsonData.unavailableTimes;
                     jsonArr.splice(rangeIndex(jsonArr, rng), 1);
-                    json.value = JSON.stringify(jsonData, undefined, "\t");
+                    writeJsonData(json, jsonData);
                     parent.removeChild(root);
                 });
             }
         });
     }
     FieldsForm.templateUt = templateUt;
+    function utSwitchEnable(f, json) {
+        f.utLowValue.disabled = f.utNoChange.checked;
+        f.utLowInclusive.disabled = f.utNoChange.checked;
+        f.utHighValue.disabled = f.utNoChange.checked;
+        f.utHighInclusive.disabled = f.utNoChange.checked;
+        f.utAddButton.disabled = f.utNoChange.checked;
+        if (f.utNoChange.checked) {
+            Templating.killAll("ut");
+            var jsonData = getJsonData(json);
+            delete jsonData.unavailableTimes;
+            writeJsonData(json, jsonData);
+        }
+        else {
+            var jsonData = getJsonData(json);
+            jsonData.unavailableTimes = [];
+            writeJsonData(json, jsonData);
+        }
+    }
     function setupListeners(mode, f, json) {
-        change(f.gridLoad, "maxGridLoad", json);
-        change(f.currentCharge, "currentCharge", json);
-        change(f.maxCharge, "chargeCapacity", json);
-        change(f.chargeRate, "chargePerHour", json);
-        change(f.chargeDrain, "chargeDrainPerHour", json);
+        change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
+        change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
+        change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
+        change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json);
+        change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json);
+        f.utNoChange.addEventListener("change", function () { return utSwitchEnable(f, json); });
         f.utAddButton.addEventListener("click", function () {
-            getNum(f.utLowValue, function (low) { return getNum(f.utHighValue, function (high) {
-                var rng = {
-                    lowerBound: {
-                        pivot: zeroPad(low),
-                        inclusive: f.utLowInclusive.checked
-                    },
-                    upperBound: {
-                        pivot: zeroPad(high),
-                        inclusive: f.utHighInclusive.checked
-                    }
-                };
-                var jsonData = JSON.parse(json.value);
-                jsonData.unavailableTimes.push(rng);
-                json.value = JSON.stringify(jsonData, undefined, "\t");
-                templateUt(rng, json);
-            }); });
+            if (f.utNoChange.checked) {
+                alert("Error: Cannot add an unavailable time range when the Do Not Change checkbox is checked.");
+            }
+            else {
+                getNum(f.utLowValue, function (low) { return getNum(f.utHighValue, function (high) {
+                    var rng = {
+                        lowerBound: {
+                            pivot: zeroPad(low),
+                            inclusive: f.utLowInclusive.checked
+                        },
+                        upperBound: {
+                            pivot: zeroPad(high),
+                            inclusive: f.utHighInclusive.checked
+                        }
+                    };
+                    var jsonData = getJsonData(json);
+                    jsonData.unavailableTimes.push(rng);
+                    writeJsonData(json, jsonData);
+                    templateUt(rng, json);
+                }); });
+            }
         });
         formSubmit(mode, f.form, json, "constraints");
     }
@@ -192,7 +259,7 @@ function formSubmit(f, f2, json, action) {
                     var req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port_1 + "/");
                     var jsonText_1;
                     if (action === "constraints") {
-                        var data = JSON.parse(json.value);
+                        var data = getJsonData(json);
                         data.action = action;
                         jsonText_1 = JSON.stringify(data);
                     }
@@ -238,15 +305,21 @@ window.addEventListener("DOMContentLoaded", function () {
     var fieldsForm = {
         form: document.getElementById("form-fields"),
         gridLoad: document.getElementById("input-grid-load"),
+        gridLoadNoChange: document.getElementById("input-grid-load-nc"),
         currentCharge: document.getElementById("input-current-charge"),
+        currentChargeNoChange: document.getElementById("input-current-charge-nc"),
         maxCharge: document.getElementById("input-charge-capacity"),
+        maxChargeNoChange: document.getElementById("input-charge-capacity-nc"),
         chargeRate: document.getElementById("input-charge-rate"),
+        chargeRateNoChange: document.getElementById("input-charge-rate-nc"),
         chargeDrain: document.getElementById("input-charge-drain"),
+        chargeDrainNoChange: document.getElementById("input-charge-drain-nc"),
         utLowValue: document.getElementById("input-ut-low"),
         utLowInclusive: document.getElementById("input-ut-low-inc"),
         utHighValue: document.getElementById("input-ut-high"),
         utHighInclusive: document.getElementById("input-ut-high-inc"),
-        utAddButton: document.getElementById("input-ut-add")
+        utAddButton: document.getElementById("input-ut-add"),
+        utNoChange: document.getElementById("input-ut-nc")
     };
     var globalForm = {
         form: document.getElementById("form-global"),
