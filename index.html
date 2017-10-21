@@ -9,6 +9,7 @@
 	<link rel="stylesheet" href="style/ui.css" />
 	<script defer src="script/utils.js"></script>
 	<script defer src="script/ajax.js"></script>
+	<script defer src="script/templating.js"></script>
 	<script defer src="script/ui.js"></script>
 </head>
 <body>
@@ -16,27 +17,27 @@
 	<form id="form-global">
 		<fieldset>
 			<legend>Input Mode</legend>
-			<div><input id="mode-json" type="radio" name="mode" value="json" checked /><label for="mode-json"> Raw JSON</label></div>
-			<div><input id="mode-fields" type="radio" name="mode" value="fields" /><label for="mode-fields"> Seperate Fields</label></div>
+			<div><input type="radio" id="mode-fields" name="mode" value="fields" checked /><label for="mode-fields"> Seperate Fields</label></div>
+			<div><input type="radio" id="mode-json" name="mode" value="json" /><label for="mode-json"> Raw JSON</label></div>
 		</fieldset>
-		<div><label for="port">Numeric Car ID: </label><input id="port" type="number" min="8080" max="28080" placeholder="8080" /></div>
+		<div><label for="port">Numeric Car ID: </label><input type="number" id="port" min="8080" max="28080" placeholder="8080" /></div>
 	</form>
 	<form id="form-json">
-		<div><textarea id="input-json" rows="20" cols="56">{
-	"maxGridLoad": 80.32,
+		<div><textarea id="input-json" rows="32" cols="56">{
+	"maxGridLoad": 100,
 	"currentCharge": 0,
 	"chargeCapacity": 100,
 	"chargePerHour": 34,
-	"chargeDrainPerHour": 3.2,
+	"chargeDrainPerHour": 1,
 	"unavailableTimes": [
 		{
 			"lowerBound": {
-				"pivot": "12:34:56",
-				"inclusive": false
+				"pivot": "07:00",
+				"inclusive": true
 			},
 			"upperBound": {
-				"pivot": "17:12",
-				"inclusive": true
+				"pivot": "18:00",
+				"inclusive": false
 			}
 		}
 	]
@@ -44,8 +45,22 @@
 		<div><input type="submit" value="Update Constraints" /></div>
 	</form>
 	<form id="form-fields">
-		<!-- TODO -->
-		<p><strong>[NOT DONE - USE RAW JSON INPUT]</strong></p>
+		<p><label for="input-grid-load">Max Grid Load: </label><input type="number" id="input-grid-load" min="0.01" step="0.01" placeholder="80.32"/></p>
+		<p><label for="input-current-charge">Current Charge: </label><input type="number" id="input-current-charge" min="0" step="0.01" placeholder="0" /></p>
+		<p><label for="input-charge-capacity">Charge Capacity: </label><input type="number" id="input-charge-capacity" min="0.01" step="0.01" plaheolder="100" /></p>
+		<p><label for="input-charge-rate">Charge Per Hour: </label><input type="number" id="input-charge-rate" min="0.01" step="0.01" placeholder="34" /></p>
+		<p><label for="input-charge-drain">Charge Drain Per Hour: </label><input type="number" id="input-charge-drain" min="0" step="0.01" placeholder="3.2" /></p>
+		<fieldset>
+			<legend>Unavailable Times</legend>
+			<p><label for="input-ut-low">Lower Bound: </label><input type="number" id="input-ut-low" min="0" max="23" placeholder="7" /> <input type="checkbox" id="input-ut-low-inc" /><label for="input-ut-low-inc"> Inclusive</label></p>
+			<p><label for="input-ut-high">Upper Bound: </label><input type="number" id="input-ut-high" min="0" max="23" placeholder="18" /> <input type="checkbox" id="input-ut-high-inc" /><label for="input-ut-high-inc"> Inclusive</label></p>
+			<p><button type="button" id="input-ut-add">Add Unavailable Time</button></p>
+			<ul id="display-ut">
+				<li data-template="ut">
+					%LOW_BRACKET%%LOW%, %HIGH%%HIGH_BRACKET% <button type="button" data-template-callback="remove-btn" data-utid="%UTID%">Remove This Unavailable Time</button>
+				</li>
+			</ul>
+		</fieldset>
 		<div><input type="submit" value="Update Constraints" /></div>
 	</form>
 	<form id="form-force">

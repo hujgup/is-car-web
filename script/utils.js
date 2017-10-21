@@ -45,10 +45,23 @@ var Utils;
         };
     }
     Utils.asyncFormSubmit = asyncFormSubmit;
+    function regexEscape(str) {
+        // Credit to https://stackoverflow.com/a/3561711
+        return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+    }
+    Utils.regexEscape = regexEscape;
     function dictionaryNotEmpty(dic) {
         return Object.keys(dic).length > 0;
     }
     Utils.dictionaryNotEmpty = dictionaryNotEmpty;
+    function dictionaryForEach(dic, callback) {
+        for (var key in dic) {
+            if (dic.hasOwnProperty(key)) {
+                callback(dic[key], key, dic);
+            }
+        }
+    }
+    Utils.dictionaryForEach = dictionaryForEach;
     var Comparison;
     (function (Comparison) {
         function makeBound(value, inclusive) {

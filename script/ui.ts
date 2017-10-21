@@ -1,4 +1,4 @@
-"use strict";
+// TODO: Interfaces for JSON data
 
 interface FormContainer {
 	form: HTMLFormElement
@@ -47,12 +47,15 @@ namespace GlobalForm {
 		}
 		return res;
 	}
-	export function setupListeners(mode: Form, json: HTMLTextAreaElement) {
-		mode.inputJson.addEventListener("change", () => switchDisplayedForm(mode));
-		mode.inputFields.addEventListener("change", () => switchDisplayedForm(mode));
+	export function setupListeners(mode: Form, fields: FieldsForm.Form, json: HTMLTextAreaElement) {
+		mode.inputJson.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
+		mode.inputFields.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
 		formSubmit(mode, mode.form, json, "constraints");
 	}
-	export function switchDisplayedForm(mode: Form) {
+	function updateField(inKey: string, outEle: HTMLInputElement, json: any) {
+		outEle.value = json.inKey;
+	}
+	export function switchDisplayedForm(mode: Form, fields: FieldsForm.Form, json: HTMLTextAreaElement) {
 		let inputType = getInputType(mode);
 		switch (inputType) {
 			case InputType.JSON:
@@ -62,6 +65,14 @@ namespace GlobalForm {
 			case InputType.FIELDS:
 				mode.formJson.style.display = "none";
 				mode.formFields.style.display = "";
+				let jsonData = JSON.parse(json.value);
+				fields.gridLoad.value = jsonData.maxGridLoad;
+				fields.currentCharge.value = jsonData.currentCharge;
+				fields.maxCharge.value = jsonData.chargeCapacity;
+				fields.chargeRate.value = jsonData.chargePerHour;
+				fields.chargeDrain.value = jsonData.chargeDrainPerHour;
+				Templating.killAll("ut");
+				jsonData.unavailableTimes.forEach((ut: FieldsForm.JsonRange) => FieldsForm.templateUt(ut, json));
 				break;
 			case InputType.ERR_NONE:
 				alert("ERR: Radio button logic failure (none selected).");
@@ -86,8 +97,103 @@ namespace JsonForm {
 
 namespace FieldsForm {
 	export interface Form extends FormContainer {
+		gridLoad: HTMLInputElement,
+		currentCharge: HTMLInputElement,
+		maxCharge: HTMLInputElement,
+		chargeRate: HTMLInputElement,
+		chargeDrain: HTMLInputElement,
+		utLowValue: HTMLInputElement,
+		utLowInclusive: HTMLInputElement,
+		utHighValue: HTMLInputElement,
+		utHighInclusive: HTMLInputElement,
+		utAddButton: HTMLButtonElement
+	}
+	function getNum(inEle: HTMLInputElement, callback: (n: number) => void) {
+		let value = parseFloat(inEle.value);
+		if (isNaN(value) || !isFinite(value)) {
+			console.error(inEle.id + " not a number.");
+		} else {
+			callback(value);
+		}	
+	}
+	function change(inEle: HTMLInputElement, outKey: string, json: HTMLTextAreaElement) {
+		inEle.addEventListener("change", () => {
+			getNum(inEle, value => {
+				let jsonData = JSON.parse(json.value);
+				jsonData[outKey] = value;
+				json.value = JSON.stringify(jsonData, undefined, "\t");
+			});
+		});
+	}
+	export interface JsonBound {
+		pivot: string,
+		inclusive: boolean
+	}
+	export interface JsonRange {
+		lowerBound: JsonBound,
+		upperBound: JsonBound
+	}
+	function zeroPad(n: number) {
+		let res = n.toString();
+		if (res.length === 1) {
+			res = "0" + res;
+		}
+		return res + ":00";
+	}
+	function rangeIndex(arr: ReadonlyArray<JsonRange>, rng: JsonRange) {
+		let res = -1;
+		arr.some((value, index) => {
+			let brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
+				&& value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
+			if (brk) {
+				res = index;
+			}
+			return brk;
+		});
+		return res;
+	}
+	export function templateUt(rng: JsonRange, json: HTMLTextAreaElement) {
+		Templating.push(Templating.getTemplate("ut") as Templating.Template, {
+			LOW: rng.lowerBound.pivot,
+			LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
+			HIGH: rng.upperBound.pivot,
+			HIGH_BRACKET: rng.upperBound.inclusive ? "]" : ")"
+		}, (id, element, root, parent) => {
+			if (id === "remove-btn") {
+				element.addEventListener("click", () => {
+					let jsonData = JSON.parse(json.value);
+					let jsonArr = jsonData.unavailableTimes as JsonRange[];
+					jsonArr.splice(rangeIndex(jsonArr, rng), 1);
+					json.value = JSON.stringify(jsonData, undefined, "\t");
+					parent.removeChild(root);
+				});
+			}
+		});
 	}
 	export function setupListeners(mode: GlobalForm.Form, f: Form, json: HTMLTextAreaElement) {
+		change(f.gridLoad, "maxGridLoad", json);
+		change(f.currentCharge, "currentCharge", json);
+		change(f.maxCharge, "chargeCapacity", json);
+		change(f.chargeRate, "chargePerHour", json);
+		change(f.chargeDrain, "chargeDrainPerHour", json);
+		f.utAddButton.addEventListener("click", () => {
+			getNum(f.utLowValue, low => getNum(f.utHighValue, high => {
+				let rng: JsonRange = {
+					lowerBound: {
+						pivot: zeroPad(low),
+						inclusive: f.utLowInclusive.checked
+					},
+					upperBound: {
+						pivot: zeroPad(high),
+						inclusive: f.utHighInclusive.checked
+					}
+				};
+				let jsonData = JSON.parse(json.value);
+				jsonData.unavailableTimes.push(rng);
+				json.value = JSON.stringify(jsonData, undefined, "\t");
+				templateUt(rng, json);
+			}));
+		});
 		formSubmit(mode, f.form, json, "constraints");
 	}
 }
@@ -139,12 +245,34 @@ function formSubmit(f: GlobalForm.Form, f2: HTMLFormElement, json: HTMLTextAreaE
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+	interface Form extends FormContainer {
+		gridLoad: HTMLInputElement,
+		currentCharge: HTMLInputElement,
+		maxCharge: HTMLInputElement,
+		chargeRate: HTMLInputElement,
+		chargeDrain: HTMLInputElement,
+		utLowValue: HTMLInputElement,
+		utLowInclusive: HTMLInputElement,
+		utHighValue: HTMLInputElement,
+		utHighInclusive: HTMLInputElement,
+		utAddButton: HTMLButtonElement
+	}
 	let jsonForm: JsonForm.Form = {
 		form: document.getElementById("form-json") as HTMLFormElement,
 		text: document.getElementById("input-json") as HTMLTextAreaElement
 	};
 	let fieldsForm: FieldsForm.Form = {
-		form: document.getElementById("form-fields") as HTMLFormElement
+		form: document.getElementById("form-fields") as HTMLFormElement,
+		gridLoad: document.getElementById("input-grid-load") as HTMLInputElement,
+		currentCharge: document.getElementById("input-current-charge") as HTMLInputElement,
+		maxCharge: document.getElementById("input-charge-capacity") as HTMLInputElement,
+		chargeRate: document.getElementById("input-charge-rate") as HTMLInputElement,
+		chargeDrain: document.getElementById("input-charge-drain") as HTMLInputElement,
+		utLowValue: document.getElementById("input-ut-low") as HTMLInputElement,
+		utLowInclusive: document.getElementById("input-ut-low-inc") as HTMLInputElement,
+		utHighValue: document.getElementById("input-ut-high") as HTMLInputElement,
+		utHighInclusive: document.getElementById("input-ut-high-inc") as HTMLInputElement,
+		utAddButton: document.getElementById("input-ut-add") as HTMLButtonElement
 	};
 	let globalForm: GlobalForm.Form = {
 		form: document.getElementById("form-global") as HTMLFormElement,
@@ -156,11 +284,12 @@ window.addEventListener("DOMContentLoaded", () => {
 	};
 	let forceForm = document.getElementById("form-force") as HTMLFormElement;
 
-	GlobalForm.setupListeners(globalForm, jsonForm.text);
+	Templating.setup();
+	GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
 	JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text);
 	FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
 	formSubmit(globalForm, forceForm, jsonForm.text, "negotiate");
-	GlobalForm.switchDisplayedForm(globalForm);
+	GlobalForm.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
 });
 
 

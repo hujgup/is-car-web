@@ -1,4 +1,5 @@
 "use strict";
+// TODO: Interfaces for JSON data
 var GlobalForm;
 (function (GlobalForm) {
     var InputType;
@@ -45,13 +46,16 @@ var GlobalForm;
         return res;
     }
     GlobalForm.getInputType = getInputType;
-    function setupListeners(mode, json) {
-        mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode); });
-        mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode); });
+    function setupListeners(mode, fields, json) {
+        mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
+        mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
         formSubmit(mode, mode.form, json, "constraints");
     }
     GlobalForm.setupListeners = setupListeners;
-    function switchDisplayedForm(mode) {
+    function updateField(inKey, outEle, json) {
+        outEle.value = json.inKey;
+    }
+    function switchDisplayedForm(mode, fields, json) {
         var inputType = getInputType(mode);
         switch (inputType) {
             case InputType.JSON:
@@ -61,6 +65,14 @@ var GlobalForm;
             case InputType.FIELDS:
                 mode.formJson.style.display = "none";
                 mode.formFields.style.display = "";
+                var jsonData = JSON.parse(json.value);
+                fields.gridLoad.value = jsonData.maxGridLoad;
+                fields.currentCharge.value = jsonData.currentCharge;
+                fields.maxCharge.value = jsonData.chargeCapacity;
+                fields.chargeRate.value = jsonData.chargePerHour;
+                fields.chargeDrain.value = jsonData.chargeDrainPerHour;
+                Templating.killAll("ut");
+                jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.templateUt(ut, json); });
                 break;
             case InputType.ERR_NONE:
                 alert("ERR: Radio button logic failure (none selected).");
@@ -83,7 +95,86 @@ var JsonForm;
 })(JsonForm || (JsonForm = {}));
 var FieldsForm;
 (function (FieldsForm) {
+    function getNum(inEle, callback) {
+        var value = parseFloat(inEle.value);
+        if (isNaN(value) || !isFinite(value)) {
+            console.error(inEle.id + " not a number.");
+        }
+        else {
+            callback(value);
+        }
+    }
+    function change(inEle, outKey, json) {
+        inEle.addEventListener("change", function () {
+            getNum(inEle, function (value) {
+                var jsonData = JSON.parse(json.value);
+                jsonData[outKey] = value;
+                json.value = JSON.stringify(jsonData, undefined, "\t");
+            });
+        });
+    }
+    function zeroPad(n) {
+        var res = n.toString();
+        if (res.length === 1) {
+            res = "0" + res;
+        }
+        return res + ":00";
+    }
+    function rangeIndex(arr, rng) {
+        var res = -1;
+        arr.some(function (value, index) {
+            var brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
+                && value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
+            if (brk) {
+                res = index;
+            }
+            return brk;
+        });
+        return res;
+    }
+    function templateUt(rng, json) {
+        Templating.push(Templating.getTemplate("ut"), {
+            LOW: rng.lowerBound.pivot,
+            LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
+            HIGH: rng.upperBound.pivot,
+            HIGH_BRACKET: rng.upperBound.inclusive ? "]" : ")"
+        }, function (id, element, root, parent) {
+            if (id === "remove-btn") {
+                element.addEventListener("click", function () {
+                    var jsonData = JSON.parse(json.value);
+                    var jsonArr = jsonData.unavailableTimes;
+                    jsonArr.splice(rangeIndex(jsonArr, rng), 1);
+                    json.value = JSON.stringify(jsonData, undefined, "\t");
+                    parent.removeChild(root);
+                });
+            }
+        });
+    }
+    FieldsForm.templateUt = templateUt;
     function setupListeners(mode, f, json) {
+        change(f.gridLoad, "maxGridLoad", json);
+        change(f.currentCharge, "currentCharge", json);
+        change(f.maxCharge, "chargeCapacity", json);
+        change(f.chargeRate, "chargePerHour", json);
+        change(f.chargeDrain, "chargeDrainPerHour", json);
+        f.utAddButton.addEventListener("click", function () {
+            getNum(f.utLowValue, function (low) { return getNum(f.utHighValue, function (high) {
+                var rng = {
+                    lowerBound: {
+                        pivot: zeroPad(low),
+                        inclusive: f.utLowInclusive.checked
+                    },
+                    upperBound: {
+                        pivot: zeroPad(high),
+                        inclusive: f.utHighInclusive.checked
+                    }
+                };
+                var jsonData = JSON.parse(json.value);
+                jsonData.unavailableTimes.push(rng);
+                json.value = JSON.stringify(jsonData, undefined, "\t");
+                templateUt(rng, json);
+            }); });
+        });
         formSubmit(mode, f.form, json, "constraints");
     }
     FieldsForm.setupListeners = setupListeners;
@@ -145,7 +236,17 @@ window.addEventListener("DOMContentLoaded", function () {
         text: document.getElementById("input-json")
     };
     var fieldsForm = {
-        form: document.getElementById("form-fields")
+        form: document.getElementById("form-fields"),
+        gridLoad: document.getElementById("input-grid-load"),
+        currentCharge: document.getElementById("input-current-charge"),
+        maxCharge: document.getElementById("input-charge-capacity"),
+        chargeRate: document.getElementById("input-charge-rate"),
+        chargeDrain: document.getElementById("input-charge-drain"),
+        utLowValue: document.getElementById("input-ut-low"),
+        utLowInclusive: document.getElementById("input-ut-low-inc"),
+        utHighValue: document.getElementById("input-ut-high"),
+        utHighInclusive: document.getElementById("input-ut-high-inc"),
+        utAddButton: document.getElementById("input-ut-add")
     };
     var globalForm = {
         form: document.getElementById("form-global"),
@@ -156,9 +257,10 @@ window.addEventListener("DOMContentLoaded", function () {
         formFields: fieldsForm.form
     };
     var forceForm = document.getElementById("form-force");
-    GlobalForm.setupListeners(globalForm, jsonForm.text);
+    Templating.setup();
+    GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
     JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text);
     FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
     formSubmit(globalForm, forceForm, jsonForm.text, "negotiate");
-    GlobalForm.switchDisplayedForm(globalForm);
+    GlobalForm.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
 });

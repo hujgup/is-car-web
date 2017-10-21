@@ -36,11 +36,28 @@ namespace Utils {
 		};
 	}
 
+	export function regexEscape(str: string): string {
+		// Credit to https://stackoverflow.com/a/3561711
+		return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+	}
+
 	export interface Dictionary<T> {
 		[key: string]: T
 	}
-	export function dictionaryNotEmpty<T>(dic: Dictionary<T>): boolean {
+	export interface ReadonlyDictionary<T> {
+		readonly [key: string]: T
+	}
+	export function dictionaryNotEmpty<T>(dic: ReadonlyDictionary<T>): boolean {
 		return Object.keys(dic).length > 0;
+	}
+	export function dictionaryForEach<T>(dic: ReadonlyDictionary<T>, callback: (value: T, key: string, dic: ReadonlyDictionary<T>) => void);
+	export function dictionaryForEach<T>(dic: Dictionary<T>, callback: (value: T, key: string, dic: Dictionary<T>) => void);
+	export function dictionaryForEach<T>(dic: Dictionary<T> | ReadonlyDictionary<T>, callback: (value: T, key: string, dic: Dictionary<T> | ReadonlyDictionary<T>) => void) {
+		for (let key in dic) {
+			if (dic.hasOwnProperty(key)) {
+				callback(dic[key], key, dic);
+			}
+		}
 	}
 	
 	export namespace Comparison {
