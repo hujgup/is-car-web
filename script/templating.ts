@@ -15,15 +15,12 @@ namespace Templating {
 		let t = getTemplate(tid);
 		if (typeof t !== "undefined") {
 			let parent = t.source.parentElement as HTMLElement;
-			let toRemove: HTMLElement[] = [];
-			let child: HTMLElement;
-			for (let i = 0; i < parent.children.length; i++) {
-				child = parent.children[i] as HTMLElement;
+			ArrayLike.reduce(ArrayLike.cast<HTMLElement>(parent.children), (toRemove, child) => {
 				if (child.hasAttribute("data-template-clone")) {
 					toRemove.push(child);
 				}
-			}
-			toRemove.forEach(child => parent.removeChild(child));
+				return toRemove;
+			}, [] as HTMLElement[]).forEach(child => parent.removeChild(child));
 		}
 	}
 
@@ -59,14 +56,13 @@ namespace Templating {
 			case Node.ELEMENT_NODE:
 				let hasCallback = false;
 				let attr: Attr;
-				for (let i = 0; i < node.attributes.length; i++) {
-					attr = node.attributes.item(i);
+				ArrayLike.forEach(node.attributes, attr => {
 					attr.value = argReplace(attr.value, args);
 					hasCallback = hasCallback || attr.name === "data-template-callback";
-				}
-				for (let i = 0; i < node.childNodes.length; i++) {
-					resolveArgs(node.childNodes[i], args, root, parent, callback);
-				}
+				});
+				ArrayLike.forEach(node.childNodes, child => {
+					resolveArgs(child, args, root, parent, callback);					
+				});
 				if (hasCallback && typeof callback !== "undefined") {
 					callback(node.attributes.getNamedItem("data-template-callback").value, node as HTMLElement, root, parent);
 				}
@@ -88,11 +84,8 @@ namespace Templating {
 
 	export function setup() {
 		const elements = document.querySelectorAll("[data-template]");
-		let element: HTMLElement;
-		let tid: string;
-		for (let i = 0; i < elements.length; i++) {
-			element = elements[i] as HTMLElement;
-			tid = element.getAttribute("data-template") as string;
+		ArrayLike.forEach(ArrayLike.cast<HTMLElement>(elements), element => {
+			const tid = element.getAttribute("data-template") as string;
 			if (templates.hasOwnProperty(tid)) {
 				console.error("Templater: Duplicate template ID \"" + tid + "\".");
 			} else {
@@ -103,6 +96,6 @@ namespace Templating {
 				};
 				element.style.display = "none";
 			}
-		}
+		});
 	}
 }

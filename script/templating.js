@@ -14,15 +14,12 @@ var Templating;
         var t = getTemplate(tid);
         if (typeof t !== "undefined") {
             var parent_1 = t.source.parentElement;
-            var toRemove = [];
-            var child = void 0;
-            for (var i = 0; i < parent_1.children.length; i++) {
-                child = parent_1.children[i];
+            ArrayLike.reduce(ArrayLike.cast(parent_1.children), function (toRemove, child) {
                 if (child.hasAttribute("data-template-clone")) {
                     toRemove.push(child);
                 }
-            }
-            toRemove.forEach(function (child) { return parent_1.removeChild(child); });
+                return toRemove;
+            }, []).forEach(function (child) { return parent_1.removeChild(child); });
         }
     }
     Templating.killAll = killAll;
@@ -51,17 +48,16 @@ var Templating;
     function resolveArgs(node, args, root, parent, callback) {
         switch (node.nodeType) {
             case Node.ELEMENT_NODE:
-                var hasCallback = false;
+                var hasCallback_1 = false;
                 var attr = void 0;
-                for (var i = 0; i < node.attributes.length; i++) {
-                    attr = node.attributes.item(i);
+                ArrayLike.forEach(node.attributes, function (attr) {
                     attr.value = argReplace(attr.value, args);
-                    hasCallback = hasCallback || attr.name === "data-template-callback";
-                }
-                for (var i = 0; i < node.childNodes.length; i++) {
-                    resolveArgs(node.childNodes[i], args, root, parent, callback);
-                }
-                if (hasCallback && typeof callback !== "undefined") {
+                    hasCallback_1 = hasCallback_1 || attr.name === "data-template-callback";
+                });
+                ArrayLike.forEach(node.childNodes, function (child) {
+                    resolveArgs(child, args, root, parent, callback);
+                });
+                if (hasCallback_1 && typeof callback !== "undefined") {
                     callback(node.attributes.getNamedItem("data-template-callback").value, node, root, parent);
                 }
                 break;
@@ -82,11 +78,8 @@ var Templating;
     Templating.push = push;
     function setup() {
         var elements = document.querySelectorAll("[data-template]");
-        var element;
-        var tid;
-        for (var i = 0; i < elements.length; i++) {
-            element = elements[i];
-            tid = element.getAttribute("data-template");
+        ArrayLike.forEach(ArrayLike.cast(elements), function (element) {
+            var tid = element.getAttribute("data-template");
             if (templates.hasOwnProperty(tid)) {
                 console.error("Templater: Duplicate template ID \"" + tid + "\".");
             }
@@ -98,7 +91,7 @@ var Templating;
                 };
                 element.style.display = "none";
             }
-        }
+        });
     }
     Templating.setup = setup;
 })(Templating || (Templating = {}));

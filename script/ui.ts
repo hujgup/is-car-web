@@ -77,7 +77,6 @@ namespace GlobalForm {
 		outEle.value = json[inKey];
 	}
 	function valueToInput(n: number | undefined, input: HTMLInputElement, noChange: HTMLInputElement) {
-		console.log(n);
 		if (n !== undefined) {
 			input.value = (Math.round(100*n)/100).toString();
 			noChange.checked = false;
