@@ -1,5 +1,5 @@
 namespace ArrayLike {
-	export type Type<T> = ReadonlyArray<T> | {
+	export interface Type<T> {
 		readonly [index: number]: T,
 		readonly length: number
 	};

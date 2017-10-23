@@ -49,10 +49,14 @@ var Utils;
         throw new Error("Value should never be possible.");
     }
     Utils.assertNever = assertNever;
-    function expandJsonString(json) {
-        return JSON.stringify(JSON.parse(json), null, "\t");
+    function formatJson(json) {
+        return JSON.stringify(json, undefined, "\t");
     }
-    Utils.expandJsonString = expandJsonString;
+    Utils.formatJson = formatJson;
+    function expandJson(json) {
+        return formatJson(JSON.parse(json));
+    }
+    Utils.expandJson = expandJson;
     var queryObj;
     function query() {
         if (typeof queryObj === "undefined") {

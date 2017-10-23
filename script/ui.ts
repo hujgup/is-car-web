@@ -1,10 +1,10 @@
 interface JsonBound {
-	pivot: string,
-	inclusive: boolean
+	readonly pivot: string,
+	readonly inclusive: boolean
 }
 interface JsonRange {
-	lowerBound: JsonBound,
-	upperBound: JsonBound
+	readonly lowerBound: JsonBound,
+	readonly upperBound: JsonBound
 }
 interface JsonData {
 	maxGridLoad?: number,
@@ -27,17 +27,11 @@ interface FormContainer {
 
 namespace GlobalForm {
 	export interface Form extends FormContainer {
-		inputJson: HTMLInputElement,
-		inputFields: HTMLInputElement,
-		inputPort: HTMLInputElement,
-		formJson: HTMLFormElement,
-		formFields: HTMLFormElement
-	}
-	export enum InputType {
-		JSON,
-		FIELDS,
-		ERR_NONE,
-		ERR_MANY	
+		readonly inputJson: HTMLInputElement,
+		readonly inputFields: HTMLInputElement,
+		readonly inputPort: HTMLInputElement,
+		readonly formJson: HTMLFormElement,
+		readonly formFields: HTMLFormElement
 	}
 	export function getPort(f: Form): number {
 		return parseInt(f.inputPort.value);
@@ -50,21 +44,6 @@ namespace GlobalForm {
 			res = "Port number must be an integer.";
 		} else if (port < 8080 || port > 28080) {
 			res = "Port number must be between 8080 and 28080, inclusive.";
-		}
-		return res;
-	}
-	export function getInputType(mode: Form): InputType {
-		let res: InputType;
-		if (mode.inputJson.checked) {
-			if (mode.inputFields.checked) {
-				res = InputType.ERR_MANY;
-			} else {
-				res = InputType.JSON;
-			}
-		} else if (mode.inputFields.checked) {
-			res = InputType.FIELDS;
-		} else {
-			res = InputType.ERR_NONE;
 		}
 		return res;
 	}
@@ -87,49 +66,37 @@ namespace GlobalForm {
 		input.disabled = noChange.checked;
 	}
 	export function switchDisplayedForm(mode: Form, fields: FieldsForm.Form, json: HTMLTextAreaElement) {
-		let inputType = getInputType(mode);
-		switch (inputType) {
-			case InputType.JSON:
-				mode.formJson.style.display = "";
-				mode.formFields.style.display = "none";
-				break;
-			case InputType.FIELDS:
-				mode.formJson.style.display = "none";
-				mode.formFields.style.display = "";
-				let jsonData = getJsonData(json);
-				valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
-				valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
-				valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
-				valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
-				valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
-				Templating.killTemplate(fields.utTemplate);
-				let utCheckedValue = jsonData.unavailableTimes === undefined;
-				if (!utCheckedValue) {
-					(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => FieldsForm.pushUtTemplate(fields.utTemplate, ut, json));					
-				}
-				fields.utNoChange.checked = utCheckedValue;
-				fields.utLowValue.disabled = utCheckedValue;
-				fields.utLowInclusive.disabled = utCheckedValue;
-				fields.utHighValue.disabled = utCheckedValue;
-				fields.utHighInclusive.disabled = utCheckedValue;
-				fields.utAddButton.disabled = utCheckedValue;
-				fields.utAddButton.disabled = utCheckedValue;
-				break;
-			case InputType.ERR_NONE:
-				alert("ERR: Radio button logic failure (none selected).");
-				break;
-			case InputType.ERR_MANY:
-				alert("ERR: Radio button logic failure (more than one selected).");
-				break;
-			default:
-				Utils.assertNever(inputType);
+		if (mode.inputJson.checked) {
+			mode.formJson.style.display = "";
+			mode.formFields.style.display = "none";
+		} else {
+			mode.formJson.style.display = "none";
+			mode.formFields.style.display = "";
+			let jsonData = getJsonData(json);
+			valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
+			valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
+			valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
+			valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
+			valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
+			Templating.killTemplate(fields.utTemplate);
+			let utCheckedValue = jsonData.unavailableTimes === undefined;
+			if (!utCheckedValue) {
+				(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => FieldsForm.pushUtTemplate(fields.utTemplate, ut, json));					
+			}
+			fields.utNoChange.checked = utCheckedValue;
+			fields.utLowValue.disabled = utCheckedValue;
+			fields.utLowInclusive.disabled = utCheckedValue;
+			fields.utHighValue.disabled = utCheckedValue;
+			fields.utHighInclusive.disabled = utCheckedValue;
+			fields.utAddButton.disabled = utCheckedValue;
+			fields.utAddButton.disabled = utCheckedValue;
 		}
 	}
 }
 
 namespace JsonForm {
 	export interface Form extends FormContainer {
-		text: HTMLTextAreaElement
+		readonly text: HTMLTextAreaElement
 	}
 	export function setupListeners(mode: GlobalForm.Form, f: Form, json: HTMLTextAreaElement, out: Output.Data) {
 		formSubmit(mode, f.form, json, "constraints", out);
@@ -138,23 +105,23 @@ namespace JsonForm {
 
 namespace FieldsForm {
 	export interface Form extends FormContainer {
-		gridLoad: HTMLInputElement,
-		gridLoadNoChange: HTMLInputElement,
-		currentCharge: HTMLInputElement,
-		currentChargeNoChange: HTMLInputElement,
-		maxCharge: HTMLInputElement,
-		maxChargeNoChange: HTMLInputElement,
-		chargeRate: HTMLInputElement,
-		chargeRateNoChange: HTMLInputElement,
-		chargeDrain: HTMLInputElement,
-		chargeDrainNoChange: HTMLInputElement,
-		utLowValue: HTMLInputElement,
-		utLowInclusive: HTMLInputElement,
-		utHighValue: HTMLInputElement,
-		utHighInclusive: HTMLInputElement,
-		utAddButton: HTMLButtonElement,
-		utNoChange: HTMLInputElement,
-		utTemplate: Templating.Template
+		readonly gridLoad: HTMLInputElement,
+		readonly gridLoadNoChange: HTMLInputElement,
+		readonly currentCharge: HTMLInputElement,
+		readonly currentChargeNoChange: HTMLInputElement,
+		readonly maxCharge: HTMLInputElement,
+		readonly maxChargeNoChange: HTMLInputElement,
+		readonly chargeRate: HTMLInputElement,
+		readonly chargeRateNoChange: HTMLInputElement,
+		readonly chargeDrain: HTMLInputElement,
+		readonly chargeDrainNoChange: HTMLInputElement,
+		readonly utLowValue: HTMLInputElement,
+		readonly utLowInclusive: HTMLInputElement,
+		readonly utHighValue: HTMLInputElement,
+		readonly utHighInclusive: HTMLInputElement,
+		readonly utAddButton: HTMLButtonElement,
+		readonly utNoChange: HTMLInputElement,
+		readonly utTemplate: Templating.Template
 	}
 	function getNum(inEle: HTMLInputElement, callback: (n: number) => void) {
 		let value = parseFloat(inEle.value);
@@ -325,41 +292,41 @@ function formSubmit(f: GlobalForm.Form, f2: HTMLFormElement, json: HTMLTextAreaE
 
 namespace Output {
 	export interface Data {
-		inContainer: HTMLElement,
-		outContainer: HTMLElement,
-		visSection: HTMLElement,
-		switchForm: HTMLFormElement,
-		switchModeVis: HTMLInputElement,
-		switchModeRaw: HTMLInputElement,
-		backBtn: HTMLButtonElement,
-		raw: HTMLElement,
-		car: HTMLElement,
-		status: HTMLElement,
-		errorHead: HTMLElement,
-		error: HTMLElement,
-		timetableContainer: HTMLElement,
-		timetableTemplate: Templating.Template,
-		timetableSubTemplateId: string,
-		timetableSize: number
+		readonly inContainer: HTMLElement,
+		readonly outContainer: HTMLElement,
+		readonly visSection: HTMLElement,
+		readonly switchForm: HTMLFormElement,
+		readonly switchModeVis: HTMLInputElement,
+		readonly switchModeRaw: HTMLInputElement,
+		readonly backBtn: HTMLButtonElement,
+		readonly raw: HTMLElement,
+		readonly car: HTMLElement,
+		readonly status: HTMLElement,
+		readonly errorHead: HTMLElement,
+		readonly error: HTMLElement,
+		readonly timetableContainer: HTMLElement,
+		readonly timetableTemplate: Templating.Template,
+		readonly timetableSubTemplateId: string,
+		readonly timetableSize: number
 	}
 	
 	interface JsonErrorResponse {
-		error: string
+		readonly error: string
 	}
 	interface JsonTimeBound {
-		pivot: string,
-		inclusive: boolean
+		readonly pivot: string,
+		readonly inclusive: boolean
 	}
 	interface JsonTimeRange {
-		lowerBound: JsonTimeBound,
-		upperBound: JsonTimeBound
+		readonly lowerBound: JsonTimeBound,
+		readonly upperBound: JsonTimeBound
 	}
 	interface JsonTimetableEntry {
-		id: number,
-		range: JsonTimeRange
+		readonly id: number,
+		readonly range: JsonTimeRange
 	}
 	interface JsonGoodResponse {
-		result: JsonTimetableEntry[]
+		readonly result: ReadonlyArray<JsonTimetableEntry>
 	}
 	type JsonResponse = JsonErrorResponse | JsonGoodResponse;
 	function isJsonErrorResponse(x: JsonResponse): x is JsonErrorResponse {

@@ -1,6 +1,7 @@
 "use strict";
 var ArrayLike;
 (function (ArrayLike) {
+    ;
     function isArrayLike(arr) {
         return Array.isArray(arr) || typeof arr.length === "number";
     }

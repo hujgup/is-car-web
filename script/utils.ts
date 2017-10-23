@@ -2,8 +2,8 @@
 
 namespace Utils {
 	export interface DomIteratorCallback {
-		open?: (node: Node) => boolean,
-		close?: (node: Node) => void
+		readonly open?: (node: Node) => boolean,
+		readonly close?: (node: Node) => void
 	}
 	export function domIterate(root: Node, callback: DomIteratorCallback, includeRoot: boolean = true, ...nodeTypes: number[]): void {
 		let skipChildren = false;
@@ -37,8 +37,11 @@ namespace Utils {
 		throw new Error("Value should never be possible.");
 	}
 
-	export function expandJsonString(json: string): string {
-		return JSON.stringify(JSON.parse(json), null, "\t");
+	export function formatJson(json: any): string {
+		return JSON.stringify(json, undefined, "\t");
+	}
+	export function expandJson(json: string): string {
+		return formatJson(JSON.parse(json));
 	}
 
 	let queryObj: Dictionary<string>;
@@ -98,12 +101,12 @@ namespace Utils {
 	
 	export namespace Comparison {
 		export interface Bound<T> {
-			value: T,
-			inclusive: boolean
+			readonly value: T,
+			readonly inclusive: boolean
 		}
 		export interface Range<T> {
-			low: Bound<T>,
-			high: Bound<T>
+			readonly low: Bound<T>,
+			readonly high: Bound<T>
 		}
 		export type Equator<T> = (a: T, b: T) => boolean;
 		export type Comparer<T> = (a: T, b: T) => number;

@@ -46,7 +46,7 @@ dd:not(:last-child)::after {
 	border-right: 2px solid black;
 }
 
-table {
+#out-var-tt {
 	border-collapse: collapse;
 }
 #out-var-tt th {

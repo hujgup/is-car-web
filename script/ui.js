@@ -7,13 +7,6 @@ function writeJsonData(area, data) {
 }
 var GlobalForm;
 (function (GlobalForm) {
-    var InputType;
-    (function (InputType) {
-        InputType[InputType["JSON"] = 0] = "JSON";
-        InputType[InputType["FIELDS"] = 1] = "FIELDS";
-        InputType[InputType["ERR_NONE"] = 2] = "ERR_NONE";
-        InputType[InputType["ERR_MANY"] = 3] = "ERR_MANY";
-    })(InputType = GlobalForm.InputType || (GlobalForm.InputType = {}));
     function getPort(f) {
         return parseInt(f.inputPort.value);
     }
@@ -32,25 +25,6 @@ var GlobalForm;
         return res;
     }
     GlobalForm.validatePort = validatePort;
-    function getInputType(mode) {
-        var res;
-        if (mode.inputJson.checked) {
-            if (mode.inputFields.checked) {
-                res = InputType.ERR_MANY;
-            }
-            else {
-                res = InputType.JSON;
-            }
-        }
-        else if (mode.inputFields.checked) {
-            res = InputType.FIELDS;
-        }
-        else {
-            res = InputType.ERR_NONE;
-        }
-        return res;
-    }
-    GlobalForm.getInputType = getInputType;
     function setupListeners(mode, fields, json, out) {
         mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
         mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
@@ -72,42 +46,31 @@ var GlobalForm;
         input.disabled = noChange.checked;
     }
     function switchDisplayedForm(mode, fields, json) {
-        var inputType = getInputType(mode);
-        switch (inputType) {
-            case InputType.JSON:
-                mode.formJson.style.display = "";
-                mode.formFields.style.display = "none";
-                break;
-            case InputType.FIELDS:
-                mode.formJson.style.display = "none";
-                mode.formFields.style.display = "";
-                var jsonData = getJsonData(json);
-                valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
-                valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
-                valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
-                valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
-                valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
-                Templating.killTemplate(fields.utTemplate);
-                var utCheckedValue = jsonData.unavailableTimes === undefined;
-                if (!utCheckedValue) {
-                    jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.pushUtTemplate(fields.utTemplate, ut, json); });
-                }
-                fields.utNoChange.checked = utCheckedValue;
-                fields.utLowValue.disabled = utCheckedValue;
-                fields.utLowInclusive.disabled = utCheckedValue;
-                fields.utHighValue.disabled = utCheckedValue;
-                fields.utHighInclusive.disabled = utCheckedValue;
-                fields.utAddButton.disabled = utCheckedValue;
-                fields.utAddButton.disabled = utCheckedValue;
-                break;
-            case InputType.ERR_NONE:
-                alert("ERR: Radio button logic failure (none selected).");
-                break;
-            case InputType.ERR_MANY:
-                alert("ERR: Radio button logic failure (more than one selected).");
-                break;
-            default:
-                Utils.assertNever(inputType);
+        if (mode.inputJson.checked) {
+            mode.formJson.style.display = "";
+            mode.formFields.style.display = "none";
+        }
+        else {
+            mode.formJson.style.display = "none";
+            mode.formFields.style.display = "";
+            var jsonData = getJsonData(json);
+            valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
+            valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
+            valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
+            valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
+            valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
+            Templating.killTemplate(fields.utTemplate);
+            var utCheckedValue = jsonData.unavailableTimes === undefined;
+            if (!utCheckedValue) {
+                jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.pushUtTemplate(fields.utTemplate, ut, json); });
+            }
+            fields.utNoChange.checked = utCheckedValue;
+            fields.utLowValue.disabled = utCheckedValue;
+            fields.utLowInclusive.disabled = utCheckedValue;
+            fields.utHighValue.disabled = utCheckedValue;
+            fields.utHighInclusive.disabled = utCheckedValue;
+            fields.utAddButton.disabled = utCheckedValue;
+            fields.utAddButton.disabled = utCheckedValue;
         }
     }
     GlobalForm.switchDisplayedForm = switchDisplayedForm;

@@ -31,12 +31,12 @@ namespace Ajax {
 	}
 
 	export interface Response {
-		error: boolean,
-		status: number,
-		text: string,
-		type: string
-		xml?: Document,
-		json?: any
+		readonly error: boolean,
+		readonly status: number,
+		readonly text: string,
+		readonly type: string
+		readonly xml?: Document,
+		readonly json?: any
 	}
 
 	function makeResponse(req?: XMLHttpRequest): Response {
@@ -68,9 +68,9 @@ namespace Ajax {
 	export type Callback = (res: Response) => void;
 
 	interface QueueItem {
-		request: Request,
-		callback: Callback,
-		mime?: string
+		readonly request: Request,
+		readonly callback: Callback,
+		readonly mime?: string
 	}
 
 	const MAX_THREADS = 16;
@@ -88,10 +88,10 @@ namespace Ajax {
 	}, 16);
 
 	export class Request {
-		private headers: Utils.Dictionary<string>;
-		private data: Utils.Dictionary<string>;
-		private method: Method;
-		private url: string;
+		private readonly headers: Utils.Dictionary<string>;
+		private readonly data: Utils.Dictionary<string>;
+		private readonly method: Method;
+		private readonly url: string;
 		public constructor(method: Method, url: string) {
 			this.headers = {};
 			this.data = {};
