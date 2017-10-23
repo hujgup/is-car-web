@@ -34,7 +34,6 @@ var Templating;
         return args.reduce(function (prevStr, currRegex) { return replace(prevStr, currRegex); }, str);
     }
     function pushTemplate(template, args, callback) {
-        console.log(template);
         var newEle = template.source.cloneNode(true);
         newEle.style.display = template.display;
         newEle.setAttribute("data-template-clone", "");

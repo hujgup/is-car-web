@@ -40,7 +40,6 @@ namespace Templating {
 		return args.reduce((prevStr, currRegex) => replace(prevStr, currRegex), str);
 	}
 	export function pushTemplate(template: Template, args: Utils.ReadonlyDictionary<string>, callback?: (id: string, element: HTMLElement, root: HTMLElement, parent: HTMLElement) => void): HTMLElement {
-		console.log(template);
 		const newEle = template.source.cloneNode(true) as HTMLElement;
 		newEle.style.display = template.display;
 		newEle.setAttribute("data-template-clone", "");
