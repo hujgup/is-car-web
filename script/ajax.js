@@ -86,14 +86,12 @@ var Ajax;
             if (preExisting) {
                 append += appendTo.indexOf("?") >= 0 ? "&" : "?";
             }
-            for (var key in this.data) {
-                if (this.data.hasOwnProperty(key)) {
-                    append += encodeURIComponent(key);
-                    append += "=";
-                    append += encodeURIComponent(this.data[key]);
-                    append += "&";
-                }
-            }
+            Utils.dictionaryForEach(this.data, function (value, key) {
+                append += encodeURIComponent(key);
+                append += "=";
+                append += encodeURIComponent(value);
+                append += "&";
+            });
             append = append.substr(0, append.length - 1);
             appendTo += append;
             return appendTo;
@@ -144,11 +142,9 @@ var Ajax;
             if (isPost) {
                 req.setRequestHeader(Header.CONTENT_TYPE, "application/x-www-form-urlencoded");
             }
-            for (var key in this.headers) {
-                if (this.headers.hasOwnProperty(key)) {
-                    req.setRequestHeader(key, this.headers[key]);
-                }
-            }
+            Utils.dictionaryForEach(this.headers, function (value, key) {
+                req.setRequestHeader(key, value);
+            });
             req.onreadystatechange = function () {
                 if (req.readyState === 4) {
                     callback(makeResponse(req));

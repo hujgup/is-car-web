@@ -105,14 +105,12 @@ namespace Ajax {
 			if (preExisting) {
 				append += appendTo.indexOf("?") >= 0 ? "&" : "?";
 			}
-			for (const key in this.data) {
-				if (this.data.hasOwnProperty(key)) {
-					append += encodeURIComponent(key);
-					append += "=";
-					append += encodeURIComponent(this.data[key]);
-					append += "&";
-				}
-			}
+			Utils.dictionaryForEach(this.data, (value, key) => {
+				append += encodeURIComponent(key);
+				append += "=";
+				append += encodeURIComponent(value);
+				append += "&";
+			});
 			append = append.substr(0, append.length - 1);
 			appendTo += append;
 			return appendTo;
@@ -163,11 +161,9 @@ namespace Ajax {
 			if (isPost) {
 				req.setRequestHeader(Header.CONTENT_TYPE, "application/x-www-form-urlencoded");
 			}
-			for (const key in this.headers) {
-				if (this.headers.hasOwnProperty(key)) {
-					req.setRequestHeader(key, this.headers[key]);
-				}
-			}
+			Utils.dictionaryForEach(this.headers, (value, key) => {
+				req.setRequestHeader(key, value);
+			})
 			req.onreadystatechange = () => {
 				if (req.readyState === 4) {
 					callback(makeResponse(req));
