@@ -5,214 +5,217 @@ function getJsonData(area) {
 function writeJsonData(area, data) {
     area.value = Utils.formatJson(data);
 }
-var GlobalForm;
-(function (GlobalForm) {
-    function getPort(f) {
-        return parseInt(f.inputPort.value);
-    }
-    GlobalForm.getPort = getPort;
-    function validatePort(port) {
-        var res = undefined;
-        if (isNaN(port)) {
-            res = "Port number is not a number.";
+var Input;
+(function (Input) {
+    var Global;
+    (function (Global) {
+        function getPort(f) {
+            return parseInt(f.inputPort.value);
         }
-        else if (port % 1 !== 0) {
-            res = "Port number must be an integer.";
-        }
-        else if (port < 8080 || port > 28080) {
-            res = "Port number must be between 8080 and 28080, inclusive.";
-        }
-        return res;
-    }
-    GlobalForm.validatePort = validatePort;
-    function setupListeners(mode, fields, json, out) {
-        mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
-        mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
-        formSubmit(mode, mode.form, json, "constraints", out);
-    }
-    GlobalForm.setupListeners = setupListeners;
-    function updateField(inKey, outEle, json) {
-        outEle.value = json[inKey];
-    }
-    function valueToInput(n, input, noChange) {
-        if (n !== undefined) {
-            input.value = (Math.round(100 * n) / 100).toString();
-            noChange.checked = false;
-        }
-        else {
-            input.value = "";
-            noChange.checked = true;
-        }
-        input.disabled = noChange.checked;
-    }
-    function switchDisplayedForm(mode, fields, json) {
-        if (mode.inputJson.checked) {
-            mode.formJson.style.display = "";
-            mode.formFields.style.display = "none";
-        }
-        else {
-            mode.formJson.style.display = "none";
-            mode.formFields.style.display = "";
-            var jsonData = getJsonData(json);
-            valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
-            valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
-            valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
-            valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
-            valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
-            Templating.killTemplate(fields.utTemplate);
-            var utCheckedValue = jsonData.unavailableTimes === undefined;
-            if (!utCheckedValue) {
-                jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.pushUtTemplate(fields.utTemplate, ut, json); });
+        Global.getPort = getPort;
+        function validatePort(port) {
+            var res = undefined;
+            if (isNaN(port)) {
+                res = "Port number is not a number.";
             }
-            fields.utNoChange.checked = utCheckedValue;
-            fields.utLowValue.disabled = utCheckedValue;
-            fields.utLowInclusive.disabled = utCheckedValue;
-            fields.utHighValue.disabled = utCheckedValue;
-            fields.utHighInclusive.disabled = utCheckedValue;
-            fields.utAddButton.disabled = utCheckedValue;
-            fields.utAddButton.disabled = utCheckedValue;
-        }
-    }
-    GlobalForm.switchDisplayedForm = switchDisplayedForm;
-})(GlobalForm || (GlobalForm = {}));
-var JsonForm;
-(function (JsonForm) {
-    function setupListeners(mode, f, json, out) {
-        formSubmit(mode, f.form, json, "constraints", out);
-    }
-    JsonForm.setupListeners = setupListeners;
-})(JsonForm || (JsonForm = {}));
-var FieldsForm;
-(function (FieldsForm) {
-    function getNum(inEle, callback) {
-        var value = parseFloat(inEle.value);
-        if (isNaN(value) || !isFinite(value)) {
-            console.error(inEle.id + " not a number.");
-        }
-        else {
-            callback(value);
-        }
-    }
-    function changeValue(inEle, outKey, json) {
-        getNum(inEle, function (value) {
-            var jsonData = getJsonData(json);
-            jsonData[outKey] = value;
-            writeJsonData(json, jsonData);
-        });
-    }
-    function change(inEle, outKey, dnc, json) {
-        inEle.addEventListener("change", function () {
-            if (!dnc.checked) {
-                changeValue(inEle, outKey, json);
+            else if (port % 1 !== 0) {
+                res = "Port number must be an integer.";
             }
-        });
-        dnc.addEventListener("change", function () {
-            inEle.disabled = dnc.checked;
-            if (dnc.checked) {
+            else if (port < 8080 || port > 28080) {
+                res = "Port number must be between 8080 and 28080, inclusive.";
+            }
+            return res;
+        }
+        Global.validatePort = validatePort;
+        function setupListeners(mode, fields, json, out) {
+            mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
+            mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
+            formSubmit(mode, mode.form, json, "constraints", out);
+        }
+        Global.setupListeners = setupListeners;
+        function updateField(inKey, outEle, json) {
+            outEle.value = json[inKey];
+        }
+        function valueToInput(n, input, noChange) {
+            if (n !== undefined) {
+                input.value = (Math.round(100 * n) / 100).toString();
+                noChange.checked = false;
+            }
+            else {
+                input.value = "";
+                noChange.checked = true;
+            }
+            input.disabled = noChange.checked;
+        }
+        function switchDisplayedForm(mode, fields, json) {
+            if (mode.inputJson.checked) {
+                mode.formJson.style.display = "";
+                mode.formFields.style.display = "none";
+            }
+            else {
+                mode.formJson.style.display = "none";
+                mode.formFields.style.display = "";
                 var jsonData = getJsonData(json);
-                delete jsonData[outKey];
+                valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
+                valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
+                valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
+                valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
+                valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
+                Templating.killTemplate(fields.utTemplate);
+                var utCheckedValue = jsonData.unavailableTimes === undefined;
+                if (!utCheckedValue) {
+                    jsonData.unavailableTimes.forEach(function (ut) { return Fields.pushUtTemplate(fields.utTemplate, ut, json); });
+                }
+                fields.utNoChange.checked = utCheckedValue;
+                fields.utLowValue.disabled = utCheckedValue;
+                fields.utLowInclusive.disabled = utCheckedValue;
+                fields.utHighValue.disabled = utCheckedValue;
+                fields.utHighInclusive.disabled = utCheckedValue;
+                fields.utAddButton.disabled = utCheckedValue;
+                fields.utAddButton.disabled = utCheckedValue;
+            }
+        }
+        Global.switchDisplayedForm = switchDisplayedForm;
+    })(Global = Input.Global || (Input.Global = {}));
+    var Json;
+    (function (Json) {
+        function setupListeners(mode, f, json, out) {
+            formSubmit(mode, f.form, json, "constraints", out);
+        }
+        Json.setupListeners = setupListeners;
+    })(Json = Input.Json || (Input.Json = {}));
+    var Fields;
+    (function (Fields) {
+        function getNum(inEle, callback) {
+            var value = parseFloat(inEle.value);
+            if (isNaN(value) || !isFinite(value)) {
+                console.error(inEle.id + " not a number.");
+            }
+            else {
+                callback(value);
+            }
+        }
+        function changeValue(inEle, outKey, json) {
+            getNum(inEle, function (value) {
+                var jsonData = getJsonData(json);
+                jsonData[outKey] = value;
+                writeJsonData(json, jsonData);
+            });
+        }
+        function change(inEle, outKey, dnc, json) {
+            inEle.addEventListener("change", function () {
+                if (!dnc.checked) {
+                    changeValue(inEle, outKey, json);
+                }
+            });
+            dnc.addEventListener("change", function () {
+                inEle.disabled = dnc.checked;
+                if (dnc.checked) {
+                    var jsonData = getJsonData(json);
+                    delete jsonData[outKey];
+                    writeJsonData(json, jsonData);
+                }
+                else {
+                    changeValue(inEle, outKey, json);
+                }
+            });
+        }
+        function zeroPad(n) {
+            var res = n.toString();
+            if (res.length === 1) {
+                res = "0" + res;
+            }
+            return res + ":00";
+        }
+        function rangeIndex(arr, rng) {
+            var res = -1;
+            arr.some(function (value, index) {
+                var brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
+                    && value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
+                if (brk) {
+                    res = index;
+                }
+                return brk;
+            });
+            return res;
+        }
+        function pushUtTemplate(template, rng, json) {
+            Templating.pushTemplate(template, {
+                LOW: rng.lowerBound.pivot,
+                LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
+                HIGH: rng.upperBound.pivot,
+                HIGH_BRACKET: rng.upperBound.inclusive ? "]" : ")"
+            }, function (id, element, root, parent) {
+                if (id === "remove-btn") {
+                    element.addEventListener("click", function () {
+                        var jsonData = getJsonData(json);
+                        var jsonArr = jsonData.unavailableTimes;
+                        jsonArr.splice(rangeIndex(jsonArr, rng), 1);
+                        writeJsonData(json, jsonData);
+                        parent.removeChild(root);
+                    });
+                }
+            });
+        }
+        Fields.pushUtTemplate = pushUtTemplate;
+        function utSwitchEnable(f, json) {
+            f.utLowValue.disabled = f.utNoChange.checked;
+            f.utLowInclusive.disabled = f.utNoChange.checked;
+            f.utHighValue.disabled = f.utNoChange.checked;
+            f.utHighInclusive.disabled = f.utNoChange.checked;
+            f.utAddButton.disabled = f.utNoChange.checked;
+            if (f.utNoChange.checked) {
+                Templating.killTemplate(f.utTemplate);
+                var jsonData = getJsonData(json);
+                delete jsonData.unavailableTimes;
                 writeJsonData(json, jsonData);
             }
             else {
-                changeValue(inEle, outKey, json);
+                var jsonData = getJsonData(json);
+                jsonData.unavailableTimes = [];
+                writeJsonData(json, jsonData);
             }
-        });
-    }
-    function zeroPad(n) {
-        var res = n.toString();
-        if (res.length === 1) {
-            res = "0" + res;
         }
-        return res + ":00";
-    }
-    function rangeIndex(arr, rng) {
-        var res = -1;
-        arr.some(function (value, index) {
-            var brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
-                && value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
-            if (brk) {
-                res = index;
-            }
-            return brk;
-        });
-        return res;
-    }
-    function pushUtTemplate(template, rng, json) {
-        Templating.pushTemplate(template, {
-            LOW: rng.lowerBound.pivot,
-            LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
-            HIGH: rng.upperBound.pivot,
-            HIGH_BRACKET: rng.upperBound.inclusive ? "]" : ")"
-        }, function (id, element, root, parent) {
-            if (id === "remove-btn") {
-                element.addEventListener("click", function () {
-                    var jsonData = getJsonData(json);
-                    var jsonArr = jsonData.unavailableTimes;
-                    jsonArr.splice(rangeIndex(jsonArr, rng), 1);
-                    writeJsonData(json, jsonData);
-                    parent.removeChild(root);
-                });
-            }
-        });
-    }
-    FieldsForm.pushUtTemplate = pushUtTemplate;
-    function utSwitchEnable(f, json) {
-        f.utLowValue.disabled = f.utNoChange.checked;
-        f.utLowInclusive.disabled = f.utNoChange.checked;
-        f.utHighValue.disabled = f.utNoChange.checked;
-        f.utHighInclusive.disabled = f.utNoChange.checked;
-        f.utAddButton.disabled = f.utNoChange.checked;
-        if (f.utNoChange.checked) {
-            Templating.killTemplate(f.utTemplate);
-            var jsonData = getJsonData(json);
-            delete jsonData.unavailableTimes;
-            writeJsonData(json, jsonData);
+        function setupListeners(mode, f, json, out) {
+            change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
+            change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
+            change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
+            change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json);
+            change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json);
+            f.utNoChange.addEventListener("change", function () { return utSwitchEnable(f, json); });
+            f.utAddButton.addEventListener("click", function () {
+                if (f.utNoChange.checked) {
+                    alert("Error: Cannot add an unavailable time range when the Do Not Change checkbox is checked.");
+                }
+                else {
+                    getNum(f.utLowValue, function (low) { return getNum(f.utHighValue, function (high) {
+                        var rng = {
+                            lowerBound: {
+                                pivot: zeroPad(low),
+                                inclusive: f.utLowInclusive.checked
+                            },
+                            upperBound: {
+                                pivot: zeroPad(high),
+                                inclusive: f.utHighInclusive.checked
+                            }
+                        };
+                        var jsonData = getJsonData(json);
+                        jsonData.unavailableTimes.push(rng);
+                        writeJsonData(json, jsonData);
+                        pushUtTemplate(f.utTemplate, rng, json);
+                    }); });
+                }
+            });
+            formSubmit(mode, f.form, json, "constraints", out);
         }
-        else {
-            var jsonData = getJsonData(json);
-            jsonData.unavailableTimes = [];
-            writeJsonData(json, jsonData);
-        }
-    }
-    function setupListeners(mode, f, json, out) {
-        change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
-        change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
-        change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
-        change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json);
-        change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json);
-        f.utNoChange.addEventListener("change", function () { return utSwitchEnable(f, json); });
-        f.utAddButton.addEventListener("click", function () {
-            if (f.utNoChange.checked) {
-                alert("Error: Cannot add an unavailable time range when the Do Not Change checkbox is checked.");
-            }
-            else {
-                getNum(f.utLowValue, function (low) { return getNum(f.utHighValue, function (high) {
-                    var rng = {
-                        lowerBound: {
-                            pivot: zeroPad(low),
-                            inclusive: f.utLowInclusive.checked
-                        },
-                        upperBound: {
-                            pivot: zeroPad(high),
-                            inclusive: f.utHighInclusive.checked
-                        }
-                    };
-                    var jsonData = getJsonData(json);
-                    jsonData.unavailableTimes.push(rng);
-                    writeJsonData(json, jsonData);
-                    pushUtTemplate(f.utTemplate, rng, json);
-                }); });
-            }
-        });
-        formSubmit(mode, f.form, json, "constraints", out);
-    }
-    FieldsForm.setupListeners = setupListeners;
-})(FieldsForm || (FieldsForm = {}));
+        Fields.setupListeners = setupListeners;
+    })(Fields = Input.Fields || (Input.Fields = {}));
+})(Input || (Input = {}));
 function formSubmit(f, f2, json, action, out) {
     Utils.asyncFormSubmit(f2, function () { return new Promise(function (resolve, reject) {
         try {
-            var port_1 = GlobalForm.getPort(f);
-            var portErr = GlobalForm.validatePort(port_1);
+            var port_1 = Input.Global.getPort(f);
+            var portErr = Input.Global.validatePort(port_1);
             if (portErr) {
                 reject(portErr);
             }
@@ -416,10 +419,10 @@ window.addEventListener("DOMContentLoaded", function () {
             N: i.toString()
         });
     }
-    GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
-    JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text, out);
-    FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
+    Input.Global.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
+    Input.Json.setupListeners(globalForm, jsonForm, jsonForm.text, out);
+    Input.Fields.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
     formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
-    GlobalForm.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
+    Input.Global.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
     Output.setupListeners(out);
 });
