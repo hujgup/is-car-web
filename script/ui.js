@@ -51,10 +51,10 @@ var GlobalForm;
         return res;
     }
     GlobalForm.getInputType = getInputType;
-    function setupListeners(mode, fields, json) {
+    function setupListeners(mode, fields, json, out) {
         mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
         mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
-        formSubmit(mode, mode.form, json, "constraints");
+        formSubmit(mode, mode.form, json, "constraints", out);
     }
     GlobalForm.setupListeners = setupListeners;
     function updateField(inKey, outEle, json) {
@@ -87,10 +87,10 @@ var GlobalForm;
                 valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
                 valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
                 valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
-                Templating.killAll("ut");
+                Templating.killTemplate(fields.utTemplate);
                 var utCheckedValue = jsonData.unavailableTimes === undefined;
                 if (!utCheckedValue) {
-                    jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.templateUt(ut, json); });
+                    jsonData.unavailableTimes.forEach(function (ut) { return FieldsForm.pushUtTemplate(fields.utTemplate, ut, json); });
                 }
                 fields.utNoChange.checked = utCheckedValue;
                 fields.utLowValue.disabled = utCheckedValue;
@@ -114,8 +114,8 @@ var GlobalForm;
 })(GlobalForm || (GlobalForm = {}));
 var JsonForm;
 (function (JsonForm) {
-    function setupListeners(mode, f, json) {
-        formSubmit(mode, f.form, json, "constraints");
+    function setupListeners(mode, f, json, out) {
+        formSubmit(mode, f.form, json, "constraints", out);
     }
     JsonForm.setupListeners = setupListeners;
 })(JsonForm || (JsonForm = {}));
@@ -174,8 +174,8 @@ var FieldsForm;
         });
         return res;
     }
-    function templateUt(rng, json) {
-        Templating.push(Templating.getTemplate("ut"), {
+    function pushUtTemplate(template, rng, json) {
+        Templating.pushTemplate(template, {
             LOW: rng.lowerBound.pivot,
             LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
             HIGH: rng.upperBound.pivot,
@@ -192,7 +192,7 @@ var FieldsForm;
             }
         });
     }
-    FieldsForm.templateUt = templateUt;
+    FieldsForm.pushUtTemplate = pushUtTemplate;
     function utSwitchEnable(f, json) {
         f.utLowValue.disabled = f.utNoChange.checked;
         f.utLowInclusive.disabled = f.utNoChange.checked;
@@ -200,7 +200,7 @@ var FieldsForm;
         f.utHighInclusive.disabled = f.utNoChange.checked;
         f.utAddButton.disabled = f.utNoChange.checked;
         if (f.utNoChange.checked) {
-            Templating.killAll("ut");
+            Templating.killTemplate(f.utTemplate);
             var jsonData = getJsonData(json);
             delete jsonData.unavailableTimes;
             writeJsonData(json, jsonData);
@@ -211,7 +211,7 @@ var FieldsForm;
             writeJsonData(json, jsonData);
         }
     }
-    function setupListeners(mode, f, json) {
+    function setupListeners(mode, f, json, out) {
         change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
         change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
         change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
@@ -237,15 +237,15 @@ var FieldsForm;
                     var jsonData = getJsonData(json);
                     jsonData.unavailableTimes.push(rng);
                     writeJsonData(json, jsonData);
-                    templateUt(rng, json);
+                    pushUtTemplate(f.utTemplate, rng, json);
                 }); });
             }
         });
-        formSubmit(mode, f.form, json, "constraints");
+        formSubmit(mode, f.form, json, "constraints", out);
     }
     FieldsForm.setupListeners = setupListeners;
 })(FieldsForm || (FieldsForm = {}));
-function formSubmit(f, f2, json, action) {
+function formSubmit(f, f2, json, action, out) {
     Utils.asyncFormSubmit(f2, function () { return new Promise(function (resolve, reject) {
         try {
             var port_1 = GlobalForm.getPort(f);
@@ -256,23 +256,24 @@ function formSubmit(f, f2, json, action) {
             else {
                 try {
                     var req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port_1 + "/");
-                    var jsonText_1;
+                    var jsonText = void 0;
                     if (action === "constraints") {
                         var data = getJsonData(json);
                         data.action = action;
-                        jsonText_1 = JSON.stringify(data);
+                        jsonText = JSON.stringify(data);
                     }
                     else {
-                        jsonText_1 = JSON.stringify({
+                        jsonText = JSON.stringify({
                             action: action
                         });
                     }
                     req.setData({
-                        "json": jsonText_1
+                        "json": jsonText
                     });
                     req.execute(function (res) {
                         if (res.status !== 0) {
-                            resolve("response/?port=" + port_1 + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText_1) + "&response=" + encodeURIComponent(res.text));
+                            Output.renderResponse(out, port_1, res.status, res.text);
+                            //resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
                         }
                         else {
                             reject("JADE was not activated, or the provided port number was incorrect.");
@@ -296,7 +297,106 @@ function formSubmit(f, f2, json, action) {
         alert("Error: " + err);
     });
 }
+var Output;
+(function (Output) {
+    function isJsonErrorResponse(x) {
+        return x.hasOwnProperty("error");
+    }
+    function extractHour(b, mod) {
+        var res = parseInt(b.pivot.substr(0, 2));
+        if (!b.inclusive) {
+            res += mod;
+        }
+        return res;
+    }
+    function compressRanges(rngSet, max) {
+        var res = Utils.Array.fill(false, max);
+        rngSet.forEach(function (rng) {
+            var low = extractHour(rng.lowerBound, 1);
+            var high = extractHour(rng.upperBound, -1);
+            if (high < low) {
+                for (var i = low; i < max; i++) {
+                    res[i] = true;
+                }
+                for (var i = 0; i < high; i++) {
+                    res[i] = true;
+                }
+            }
+            else {
+                for (var i = low; i <= high; i++) {
+                    res[i] = true;
+                }
+            }
+        });
+        return res;
+    }
+    function renderResponse(out, id, status, json) {
+        Templating.killTemplate(out.timetableTemplate);
+        var jsonRes = JSON.parse(json);
+        out.raw.textContent = JSON.stringify(jsonRes, undefined, "\t");
+        out.car.textContent = id.toString();
+        out.status.textContent = status.toString();
+        if (isJsonErrorResponse(jsonRes)) {
+            out.errorHead.style.display = null;
+            out.error.style.display = null;
+            out.timetableContainer.style.display = "none";
+            out.error.textContent = jsonRes.error;
+        }
+        else {
+            out.errorHead.style.display = "none";
+            out.error.style.display = "none";
+            out.timetableContainer.style.display = null;
+            var templates_1 = {};
+            var times_1 = {};
+            jsonRes.result.forEach(function (entry) {
+                var carId = entry.id.toString();
+                if (!templates_1.hasOwnProperty(carId)) {
+                    var tmp = Templating.pushTemplate(out.timetableTemplate, {
+                        CAR: carId
+                    });
+                    templates_1[carId] = new Templating.Templater(tmp);
+                    times_1[carId] = [];
+                }
+                times_1[carId].push(entry.range);
+            });
+            Object.keys(templates_1).forEach(function (carId) {
+                compressRanges(times_1[carId], out.timetableSize).map(function (isOn, i) {
+                    templates_1[carId].pushTemplate(out.timetableSubTemplateId, {
+                        CLASS: isOn ? "tt-range" : ""
+                    });
+                });
+            });
+        }
+        out.inContainer.style.display = "none";
+        out.outContainer.style.display = null;
+    }
+    Output.renderResponse = renderResponse;
+    function switchDisplayedOutput(out) {
+        if (out.switchModeVis.checked) {
+            out.visSection.style.display = null;
+            out.raw.style.display = "none";
+        }
+        else {
+            out.visSection.style.display = "none";
+            out.raw.style.display = null;
+        }
+    }
+    function setupListeners(out) {
+        out.inContainer.style.display = null;
+        out.outContainer.style.display = "none";
+        Utils.asyncFormSubmit(out.switchForm);
+        out.switchModeVis.addEventListener("change", function () { return switchDisplayedOutput(out); });
+        out.switchModeRaw.addEventListener("change", function () { return switchDisplayedOutput(out); });
+        switchDisplayedOutput(out);
+        out.backBtn.addEventListener("click", function () {
+            out.inContainer.style.display = null;
+            out.outContainer.style.display = "none";
+        });
+    }
+    Output.setupListeners = setupListeners;
+})(Output || (Output = {}));
 window.addEventListener("DOMContentLoaded", function () {
+    var masterTemplater = new Templating.Templater(document.body);
     var jsonForm = {
         form: document.getElementById("form-json"),
         text: document.getElementById("input-json")
@@ -318,7 +418,8 @@ window.addEventListener("DOMContentLoaded", function () {
         utHighValue: document.getElementById("input-ut-high"),
         utHighInclusive: document.getElementById("input-ut-high-inc"),
         utAddButton: document.getElementById("input-ut-add"),
-        utNoChange: document.getElementById("input-ut-nc")
+        utNoChange: document.getElementById("input-ut-nc"),
+        utTemplate: masterTemplater.getTemplate("ut")
     };
     var globalForm = {
         form: document.getElementById("form-global"),
@@ -329,10 +430,33 @@ window.addEventListener("DOMContentLoaded", function () {
         formFields: fieldsForm.form
     };
     var forceForm = document.getElementById("form-force");
-    Templating.setup();
-    GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
-    JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text);
-    FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
-    formSubmit(globalForm, forceForm, jsonForm.text, "negotiate");
+    var out = {
+        inContainer: document.getElementById("sec-input"),
+        outContainer: document.getElementById("sec-output"),
+        visSection: document.getElementById("out-vis-sec"),
+        switchForm: document.getElementById("out-switch"),
+        switchModeVis: document.getElementById("out-vis"),
+        switchModeRaw: document.getElementById("out-raw"),
+        backBtn: document.getElementById("return-to-input"),
+        raw: document.getElementById("out-var-raw"),
+        car: document.getElementById("out-var-car"),
+        status: document.getElementById("out-var-status"),
+        errorHead: document.getElementById("out-var-error-head"),
+        error: document.getElementById("out-var-error"),
+        timetableContainer: document.getElementById("out-var-tt"),
+        timetableTemplate: masterTemplater.getTemplate("tt-data-wrap"),
+        timetableSubTemplateId: "tt-data-hours",
+        timetableSize: 24
+    };
+    for (var i = 0; i < out.timetableSize; i++) {
+        masterTemplater.pushTemplate("tt-hours", {
+            N: i.toString()
+        });
+    }
+    GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
+    JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text, out);
+    FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
+    formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
     GlobalForm.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
+    Output.setupListeners(out);
 });

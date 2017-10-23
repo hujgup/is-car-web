@@ -1,28 +1,16 @@
 "use strict";
 var Templating;
 (function (Templating) {
-    var templates = {};
-    function getIds() {
-        return Object.keys(templates);
+    function killTemplate(template) {
+        var parent = template.source.parentElement;
+        ArrayLike.reduce(ArrayLike.cast(parent.children), function (toRemove, child) {
+            if (child.hasAttribute("data-template-clone")) {
+                toRemove.push(child);
+            }
+            return toRemove;
+        }, []).forEach(function (child) { return parent.removeChild(child); });
     }
-    Templating.getIds = getIds;
-    function getTemplate(tid) {
-        return templates[tid];
-    }
-    Templating.getTemplate = getTemplate;
-    function killAll(tid) {
-        var t = getTemplate(tid);
-        if (typeof t !== "undefined") {
-            var parent_1 = t.source.parentElement;
-            ArrayLike.reduce(ArrayLike.cast(parent_1.children), function (toRemove, child) {
-                if (child.hasAttribute("data-template-clone")) {
-                    toRemove.push(child);
-                }
-                return toRemove;
-            }, []).forEach(function (child) { return parent_1.removeChild(child); });
-        }
-    }
-    Templating.killAll = killAll;
+    Templating.killTemplate = killTemplate;
     function replace(str, replacer) {
         return str.replace(replacer.regex, replacer.replacement);
     }
@@ -45,53 +33,113 @@ var Templating;
     function argReplace(str, args) {
         return args.reduce(function (prevStr, currRegex) { return replace(prevStr, currRegex); }, str);
     }
-    function resolveArgs(node, args, root, parent, callback) {
-        switch (node.nodeType) {
-            case Node.ELEMENT_NODE:
-                var hasCallback_1 = false;
-                var attr = void 0;
-                ArrayLike.forEach(node.attributes, function (attr) {
-                    attr.value = argReplace(attr.value, args);
-                    hasCallback_1 = hasCallback_1 || attr.name === "data-template-callback";
-                });
-                ArrayLike.forEach(node.childNodes, function (child) {
-                    resolveArgs(child, args, root, parent, callback);
-                });
-                if (hasCallback_1 && typeof callback !== "undefined") {
-                    callback(node.attributes.getNamedItem("data-template-callback").value, node, root, parent);
-                }
-                break;
-            case Node.TEXT_NODE:
-                node.textContent = argReplace(node.textContent, args);
-                break;
-        }
-    }
-    function push(template, args, callback) {
+    function pushTemplate(template, args, callback) {
+        console.log(template);
         var newEle = template.source.cloneNode(true);
         newEle.style.display = template.display;
         newEle.setAttribute("data-template-clone", "");
         var parent = template.source.parentElement;
-        resolveArgs(newEle, argsToRegex(args), newEle, parent, callback);
+        var args2 = argsToRegex(args);
+        var tParent = null;
+        Utils.domIterate(newEle, {
+            open: function (node) {
+                switch (node.nodeType) {
+                    case Node.ELEMENT_NODE:
+                        var node2 = node;
+                        var hasCallback = false;
+                        var isTemplate = false;
+                        var attr = void 0;
+                        ArrayLike.forEach(node2.attributes, function (attr) {
+                            attr.value = argReplace(attr.value, args2);
+                        });
+                        if (tParent === null) {
+                            if (node2.hasAttribute("data-template")) {
+                                tParent = node;
+                            }
+                        }
+                        if (tParent === null) {
+                            if (node2.hasAttribute("data-template-style")) {
+                                var style = node2.getAttribute("style");
+                                style = style || "";
+                                style += node2.getAttribute("data-template-style");
+                                node2.setAttribute("style", style);
+                                node2.removeAttribute("data-template-style");
+                            }
+                            if (typeof callback !== "undefined" && node2.hasAttribute("data-template-callback")) {
+                                var id = node2.getAttribute("data-template-callback");
+                                node2.removeAttribute("data-template-callback");
+                                callback(id, node2, newEle, parent);
+                            }
+                        }
+                        break;
+                    case Node.TEXT_NODE:
+                        node.textContent = argReplace(node.textContent, args2);
+                        break;
+                }
+                return false;
+            },
+            close: function (node) {
+                if (node === tParent) {
+                    tParent = null;
+                }
+            }
+        }, true, Node.ELEMENT_NODE, Node.TEXT_NODE);
         parent.appendChild(newEle);
         return newEle;
     }
-    Templating.push = push;
-    function setup() {
-        var elements = document.querySelectorAll("[data-template]");
-        ArrayLike.forEach(ArrayLike.cast(elements), function (element) {
-            var tid = element.getAttribute("data-template");
-            if (templates.hasOwnProperty(tid)) {
-                console.error("Templater: Duplicate template ID \"" + tid + "\".");
+    Templating.pushTemplate = pushTemplate;
+    var Templater = (function () {
+        function Templater(root, includeSelf) {
+            if (includeSelf === void 0) { includeSelf = false; }
+            var templates;
+            if (includeSelf && root.hasAttribute("data-template")) {
+                templates = [root];
             }
             else {
-                element.removeAttribute("data-template");
-                templates[tid] = {
-                    source: element,
-                    display: element.style.display
-                };
-                element.style.display = "none";
+                var potential = root.querySelectorAll("[data-template]");
+                templates = ArrayLike.filter(potential, function (p) { return !Utils.hasParentWithAttribute(p, "data-template"); });
             }
-        });
-    }
-    Templating.setup = setup;
+            var name;
+            this.templates = templates.reduce(function (obj, curr) {
+                name = curr.getAttribute("data-template");
+                if (obj.hasOwnProperty(name)) {
+                    console.error("Templater: Duplicate template ID \"" + name + "\".");
+                }
+                else {
+                    curr.removeAttribute("data-template");
+                    obj[name] = {
+                        source: curr,
+                        display: curr.style.display
+                    };
+                    curr.style.display = "none";
+                }
+                return obj;
+            }, {});
+        }
+        Templater.prototype.getCount = function () {
+            return this.getIds().length;
+        };
+        Templater.prototype.getIds = function () {
+            return Object.keys(this.templates);
+        };
+        Templater.prototype.getTemplate = function (tid) {
+            return this.templates[tid];
+        };
+        Templater.prototype.killTemplate = function (tid) {
+            var tmp = this.getTemplate(tid);
+            if (typeof tmp !== "undefined") {
+                killTemplate(tmp);
+            }
+        };
+        Templater.prototype.pushTemplate = function (tid, args, callback) {
+            var tmp = this.getTemplate(tid);
+            var res;
+            if (typeof tmp !== "undefined") {
+                res = pushTemplate(tmp, args, callback);
+            }
+            return res;
+        };
+        return Templater;
+    }());
+    Templating.Templater = Templater;
 })(Templating || (Templating = {}));

@@ -1,3 +1,60 @@
 fieldset {
 	display: inline-block;
 }
+
+/* dl/dt/dd unqualified styles credit to https://stackoverflow.com/a/1713060 */
+dl {
+	width: 100%;
+	overflow: hidden;
+	padding: 0;
+	margin: 0;
+}
+dt {
+	float: left;
+	padding: 0;
+	margin: 0 0.3em 0 0;
+}
+dd {
+	float: left;
+	padding: 0;
+	margin: 0;
+}
+
+dt::after {
+	content: ": ";
+}
+dt:not(:first-child) {
+	margin-left: 0.3em;
+}
+dd:not(:last-child)::after {
+	content: ", ";
+}
+
+#out-vis-sec, #return-to-input {
+	margin-top: 1em;
+}
+
+.tt-range {
+	background-color: #4ac925;
+	border-top: 2px solid black;
+	border-bottom: 2px solid black;
+}
+.tt-range-begin, .tt-range-full {
+	border-left: 2px solid black;
+}
+.tt-range-end, .tt-range-full {
+	border-right: 2px solid black;
+}
+
+table {
+	border-collapse: collapse;
+}
+#out-var-tt th {
+	padding-right: 0.3em;
+}
+#out-var-tt th, #out-var-tt td {
+	border: 2px solid black;
+}
+
+
+

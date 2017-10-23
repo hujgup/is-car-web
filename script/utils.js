@@ -11,6 +11,40 @@ var __extends = (this && this.__extends) || (function () {
 })();
 var Utils;
 (function (Utils) {
+    function domIterate(root, callback, includeRoot) {
+        if (includeRoot === void 0) { includeRoot = true; }
+        var nodeTypes = [];
+        for (var _i = 3; _i < arguments.length; _i++) {
+            nodeTypes[_i - 3] = arguments[_i];
+        }
+        var skipChildren = false;
+        if (includeRoot && callback.open) {
+            skipChildren = callback.open(root);
+        }
+        if (!skipChildren) {
+            var allNodeTypes_1 = nodeTypes.length === 0;
+            ArrayLike.forEach(root.childNodes, function (child) {
+                if (allNodeTypes_1 || nodeTypes.indexOf(child.nodeType) >= 0) {
+                    domIterate.apply(undefined, [child, callback, true].concat(nodeTypes));
+                }
+            });
+        }
+        if (includeRoot && callback.close) {
+            callback.close(root);
+        }
+    }
+    Utils.domIterate = domIterate;
+    function hasParentWithAttribute(element, attrName) {
+        var res = false;
+        while (!res && element.parentElement !== null) {
+            element = element.parentElement;
+            if (element.hasAttribute(attrName)) {
+                res = true;
+            }
+        }
+        return res;
+    }
+    Utils.hasParentWithAttribute = hasParentWithAttribute;
     function assertNever(x) {
         throw new Error("Value should never be possible.");
     }
@@ -34,12 +68,14 @@ var Utils;
     Utils.query = query;
     function asyncFormSubmit(form, promise, errorHandler) {
         form.onsubmit = function (event) {
-            promise.call(form, event)
-                .then(function (redirect) { return location.href = redirect; })["catch"](function (err) {
-                if (errorHandler !== undefined) {
-                    errorHandler(err);
-                }
-            });
+            if (promise) {
+                promise.call(form, event)
+                    .then(function (redirect) { return location.href = redirect; })["catch"](function (err) {
+                    if (errorHandler !== undefined) {
+                        errorHandler(err);
+                    }
+                });
+            }
             event.returnValue = false;
             return false;
         };

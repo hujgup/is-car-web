@@ -68,10 +68,10 @@ namespace GlobalForm {
 		}
 		return res;
 	}
-	export function setupListeners(mode: Form, fields: FieldsForm.Form, json: HTMLTextAreaElement) {
+	export function setupListeners(mode: Form, fields: FieldsForm.Form, json: HTMLTextAreaElement, out: Output.Data) {
 		mode.inputJson.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
 		mode.inputFields.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
-		formSubmit(mode, mode.form, json, "constraints");
+		formSubmit(mode, mode.form, json, "constraints", out);
 	}
 	function updateField(inKey: string, outEle: HTMLInputElement, json: JsonData) {
 		outEle.value = json[inKey];
@@ -102,10 +102,10 @@ namespace GlobalForm {
 				valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
 				valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
 				valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
-				Templating.killAll("ut");
+				Templating.killTemplate(fields.utTemplate);
 				let utCheckedValue = jsonData.unavailableTimes === undefined;
 				if (!utCheckedValue) {
-					(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => FieldsForm.templateUt(ut, json));					
+					(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => FieldsForm.pushUtTemplate(fields.utTemplate, ut, json));					
 				}
 				fields.utNoChange.checked = utCheckedValue;
 				fields.utLowValue.disabled = utCheckedValue;
@@ -131,8 +131,8 @@ namespace JsonForm {
 	export interface Form extends FormContainer {
 		text: HTMLTextAreaElement
 	}
-	export function setupListeners(mode: GlobalForm.Form, f: Form, json: HTMLTextAreaElement) {
-		formSubmit(mode, f.form, json, "constraints");
+	export function setupListeners(mode: GlobalForm.Form, f: Form, json: HTMLTextAreaElement, out: Output.Data) {
+		formSubmit(mode, f.form, json, "constraints", out);
 	}
 }
 
@@ -153,7 +153,8 @@ namespace FieldsForm {
 		utHighValue: HTMLInputElement,
 		utHighInclusive: HTMLInputElement,
 		utAddButton: HTMLButtonElement,
-		utNoChange: HTMLInputElement
+		utNoChange: HTMLInputElement,
+		utTemplate: Templating.Template
 	}
 	function getNum(inEle: HTMLInputElement, callback: (n: number) => void) {
 		let value = parseFloat(inEle.value);
@@ -206,8 +207,8 @@ namespace FieldsForm {
 		});
 		return res;
 	}
-	export function templateUt(rng: JsonRange, json: HTMLTextAreaElement) {
-		Templating.push(Templating.getTemplate("ut") as Templating.Template, {
+	export function pushUtTemplate(template: Templating.Template, rng: JsonRange, json: HTMLTextAreaElement) {
+		Templating.pushTemplate(template, {
 			LOW: rng.lowerBound.pivot,
 			LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
 			HIGH: rng.upperBound.pivot,
@@ -231,7 +232,7 @@ namespace FieldsForm {
 		f.utHighInclusive.disabled = f.utNoChange.checked;
 		f.utAddButton.disabled = f.utNoChange.checked;
 		if (f.utNoChange.checked) {
-			Templating.killAll("ut");
+			Templating.killTemplate(f.utTemplate);
 			let jsonData = getJsonData(json);
 			delete jsonData.unavailableTimes;
 			writeJsonData(json, jsonData);
@@ -241,7 +242,7 @@ namespace FieldsForm {
 			writeJsonData(json, jsonData);			
 		}
 	}
-	export function setupListeners(mode: GlobalForm.Form, f: Form, json: HTMLTextAreaElement) {
+	export function setupListeners(mode: GlobalForm.Form, f: Form, json: HTMLTextAreaElement, out: Output.Data) {
 		change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
 		change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
 		change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
@@ -266,15 +267,15 @@ namespace FieldsForm {
 					let jsonData = getJsonData(json);
 					(jsonData.unavailableTimes as JsonRange[]).push(rng);
 					writeJsonData(json, jsonData);
-					templateUt(rng, json);
+					pushUtTemplate(f.utTemplate, rng, json);
 				}));
 			}
 		});
-		formSubmit(mode, f.form, json, "constraints");
+		formSubmit(mode, f.form, json, "constraints", out);
 	}
 }
 
-function formSubmit(f: GlobalForm.Form, f2: HTMLFormElement, json: HTMLTextAreaElement, action: string) {
+function formSubmit(f: GlobalForm.Form, f2: HTMLFormElement, json: HTMLTextAreaElement, action: string, out: Output.Data) {
 	Utils.asyncFormSubmit(f2, () => new Promise<string>((resolve, reject) => {
 		try {
 			let port = GlobalForm.getPort(f);
@@ -299,7 +300,8 @@ function formSubmit(f: GlobalForm.Form, f2: HTMLFormElement, json: HTMLTextAreaE
 					});		
 					req.execute(res => {
 						if (res.status !== 0) {
-							resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
+							Output.renderResponse(out, port, res.status, res.text);
+							//resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
 						} else {
 							reject("JADE was not activated, or the provided port number was incorrect.");
 						}
@@ -320,7 +322,142 @@ function formSubmit(f: GlobalForm.Form, f2: HTMLFormElement, json: HTMLTextAreaE
 	});
 }
 
+
+namespace Output {
+	export interface Data {
+		inContainer: HTMLElement,
+		outContainer: HTMLElement,
+		visSection: HTMLElement,
+		switchForm: HTMLFormElement,
+		switchModeVis: HTMLInputElement,
+		switchModeRaw: HTMLInputElement,
+		backBtn: HTMLButtonElement,
+		raw: HTMLElement,
+		car: HTMLElement,
+		status: HTMLElement,
+		errorHead: HTMLElement,
+		error: HTMLElement,
+		timetableContainer: HTMLElement,
+		timetableTemplate: Templating.Template,
+		timetableSubTemplateId: string,
+		timetableSize: number
+	}
+	
+	interface JsonErrorResponse {
+		error: string
+	}
+	interface JsonTimeBound {
+		pivot: string,
+		inclusive: boolean
+	}
+	interface JsonTimeRange {
+		lowerBound: JsonTimeBound,
+		upperBound: JsonTimeBound
+	}
+	interface JsonTimetableEntry {
+		id: number,
+		range: JsonTimeRange
+	}
+	interface JsonGoodResponse {
+		result: JsonTimetableEntry[]
+	}
+	type JsonResponse = JsonErrorResponse | JsonGoodResponse;
+	function isJsonErrorResponse(x: JsonResponse): x is JsonErrorResponse {
+		return x.hasOwnProperty("error");
+	}
+	
+	function extractHour(b: JsonTimeBound, mod: number): number {
+		let res = parseInt(b.pivot.substr(0, 2));
+		if (!b.inclusive) {
+			res += mod;
+		}
+		return res;
+	}
+	function compressRanges(rngSet: ReadonlyArray<JsonTimeRange>, max: number): boolean[] {
+		let res: boolean[] = Utils.Array.fill(false, max);
+		rngSet.forEach(rng => {
+			let low = extractHour(rng.lowerBound, 1);
+			let high = extractHour(rng.upperBound, -1);
+			if (high < low) {
+				for (let i = low; i < max; i++) {
+					res[i] = true;
+				}
+				for (let i = 0; i < high; i++) {
+					res[i] = true;
+				}
+			} else {
+				for (let i = low; i <= high; i++) {
+					res[i] = true;
+				}
+			}
+		});
+		return res;
+	}
+	export function renderResponse(out: Data, id: number, status: number, json: string) {
+		Templating.killTemplate(out.timetableTemplate);
+		let jsonRes: JsonResponse = JSON.parse(json);
+		out.raw.textContent = JSON.stringify(jsonRes, undefined, "\t");
+		out.car.textContent = id.toString();
+		out.status.textContent = status.toString();
+		if (isJsonErrorResponse(jsonRes)) {
+			out.errorHead.style.display = null;
+			out.error.style.display = null;
+			out.timetableContainer.style.display = "none";
+			out.error.textContent = jsonRes.error;
+		} else {
+			out.errorHead.style.display = "none";
+			out.error.style.display = "none";
+			out.timetableContainer.style.display = null;
+			const templates: Utils.Dictionary<Templating.Templater> = {};
+			const times: Utils.Dictionary<JsonTimeRange[]> = {};
+			jsonRes.result.forEach(entry => {
+				let carId = entry.id.toString();
+				if (!templates.hasOwnProperty(carId)) {
+					let tmp = Templating.pushTemplate(out.timetableTemplate, {
+						CAR: carId
+					});
+					templates[carId] = new Templating.Templater(tmp);
+					times[carId] = [];
+				}
+				times[carId].push(entry.range);
+			});
+			Object.keys(templates).forEach(carId => {
+				compressRanges(times[carId], out.timetableSize).map((isOn, i) => {
+					templates[carId].pushTemplate(out.timetableSubTemplateId, {
+						CLASS: isOn ? "tt-range" : ""
+					});
+				});
+			});
+		}
+		out.inContainer.style.display = "none";
+		out.outContainer.style.display = null;
+	}
+	function switchDisplayedOutput(out: Data) {
+		if (out.switchModeVis.checked) {
+			out.visSection.style.display = null;
+			out.raw.style.display = "none";
+		} else {
+			out.visSection.style.display = "none";
+			out.raw.style.display = null;
+		}
+	}
+	export function setupListeners(out: Data) {
+		out.inContainer.style.display = null;
+		out.outContainer.style.display = "none";
+		Utils.asyncFormSubmit(out.switchForm);
+		out.switchModeVis.addEventListener("change", () => switchDisplayedOutput(out));
+		out.switchModeRaw.addEventListener("change", () => switchDisplayedOutput(out));
+		switchDisplayedOutput(out);
+		out.backBtn.addEventListener("click", () => {
+			out.inContainer.style.display = null;
+			out.outContainer.style.display = "none";	
+		});
+	}
+}
+
+
 window.addEventListener("DOMContentLoaded", () => {
+	let masterTemplater = new Templating.Templater(document.body);
 	let jsonForm: JsonForm.Form = {
 		form: document.getElementById("form-json") as HTMLFormElement,
 		text: document.getElementById("input-json") as HTMLTextAreaElement
@@ -342,7 +479,8 @@ window.addEventListener("DOMContentLoaded", () => {
 		utHighValue: document.getElementById("input-ut-high") as HTMLInputElement,
 		utHighInclusive: document.getElementById("input-ut-high-inc") as HTMLInputElement,
 		utAddButton: document.getElementById("input-ut-add") as HTMLButtonElement,
-		utNoChange: document.getElementById("input-ut-nc") as HTMLInputElement
+		utNoChange: document.getElementById("input-ut-nc") as HTMLInputElement,
+		utTemplate: masterTemplater.getTemplate("ut") as Templating.Template
 	};
 	let globalForm: GlobalForm.Form = {
 		form: document.getElementById("form-global") as HTMLFormElement,
@@ -353,13 +491,37 @@ window.addEventListener("DOMContentLoaded", () => {
 		formFields: fieldsForm.form
 	};
 	let forceForm = document.getElementById("form-force") as HTMLFormElement;
+	let out: Output.Data = {
+		inContainer: document.getElementById("sec-input") as HTMLElement,
+		outContainer: document.getElementById("sec-output") as HTMLElement,
+		visSection: document.getElementById("out-vis-sec") as HTMLElement,
+		switchForm: document.getElementById("out-switch") as HTMLFormElement,
+		switchModeVis: document.getElementById("out-vis") as HTMLInputElement,
+		switchModeRaw: document.getElementById("out-raw") as HTMLInputElement,
+		backBtn: document.getElementById("return-to-input") as HTMLButtonElement,
+		raw: document.getElementById("out-var-raw") as HTMLElement,
+		car: document.getElementById("out-var-car") as HTMLElement,
+		status: document.getElementById("out-var-status") as HTMLElement,
+		errorHead: document.getElementById("out-var-error-head") as HTMLElement,
+		error: document.getElementById("out-var-error") as HTMLElement,
+		timetableContainer: document.getElementById("out-var-tt") as HTMLElement,
+		timetableTemplate: masterTemplater.getTemplate("tt-data-wrap") as Templating.Template,
+		timetableSubTemplateId: "tt-data-hours",
+		timetableSize: 24
+	};
 
-	Templating.setup();
-	GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
-	JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text);
-	FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text);
-	formSubmit(globalForm, forceForm, jsonForm.text, "negotiate");
+	for (let i = 0; i < out.timetableSize; i++) {
+		masterTemplater.pushTemplate("tt-hours", {
+			N: i.toString()
+		});
+	}
+
+	GlobalForm.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
+	JsonForm.setupListeners(globalForm, jsonForm, jsonForm.text, out);
+	FieldsForm.setupListeners(globalForm, fieldsForm, jsonForm.text, out);
+	formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
 	GlobalForm.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
+	Output.setupListeners(out);
 });
 
 

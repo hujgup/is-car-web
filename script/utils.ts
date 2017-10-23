@@ -1,6 +1,38 @@
 "use strict";
 
 namespace Utils {
+	export interface DomIteratorCallback {
+		open?: (node: Node) => boolean,
+		close?: (node: Node) => void
+	}
+	export function domIterate(root: Node, callback: DomIteratorCallback, includeRoot: boolean = true, ...nodeTypes: number[]): void {
+		let skipChildren = false;
+		if (includeRoot && callback.open) {
+			skipChildren = callback.open(root);
+		}
+		if (!skipChildren) {
+			const allNodeTypes = nodeTypes.length === 0;
+			ArrayLike.forEach(root.childNodes, child => {
+				if (allNodeTypes || nodeTypes.indexOf(child.nodeType) >= 0) {
+					domIterate.apply(undefined, [child, callback, true].concat(nodeTypes as any[]));
+				}
+			});	
+		}
+		if (includeRoot && callback.close) {
+			callback.close(root);
+		}
+	}
+	export function hasParentWithAttribute(element: HTMLElement, attrName: string): boolean {
+		let res = false;
+		while (!res && element.parentElement !== null) {
+			element = element.parentElement;
+			if (element.hasAttribute(attrName)) {
+				res = true;
+			}
+		}
+		return res;
+	}
+
 	export function assertNever(x: never) {
 		throw new Error("Value should never be possible.");
 	}
@@ -22,15 +54,19 @@ namespace Utils {
 		return queryObj;
 	}
 
-	export function asyncFormSubmit(form: HTMLFormElement, promise: (this: HTMLFormElement, event: Event) => Promise<string>, errorHandler?: (err?: any | null) => void) {
+	export function asyncFormSubmit(form: HTMLFormElement): void;
+	export function asyncFormSubmit(form: HTMLFormElement, promise: (this: HTMLFormElement, event: Event) => Promise<string>, errorHandler?: (err?: any | null) => void): void;	
+	export function asyncFormSubmit(form: HTMLFormElement, promise?: (this: HTMLFormElement, event: Event) => Promise<string>, errorHandler?: (err?: any | null) => void): void {
 		form.onsubmit = event => {
-			(promise.call(form, event) as Promise<string>)
-				.then(redirect => location.href = redirect)
-				.catch(err => {
-					if (errorHandler !== undefined) {
-						errorHandler(err);
-					}
-				});
+			if (promise) {
+				(promise.call(form, event) as Promise<string>)
+					.then(redirect => location.href = redirect)
+					.catch(err => {
+						if (errorHandler !== undefined) {
+							errorHandler(err);
+						}
+					});
+			}
 			event.returnValue = false;
 			return false;
 		};

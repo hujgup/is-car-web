@@ -3,27 +3,16 @@ namespace Templating {
 		readonly source: HTMLElement,
 		readonly display: string | null
 	}
-
-	const templates: Utils.Dictionary<Template> = {};
-	export function getIds(): ReadonlyArray<string> {
-		return Object.keys(templates);
+	export function killTemplate(template: Template) {
+		let parent = template.source.parentElement as HTMLElement;
+		ArrayLike.reduce(ArrayLike.cast<HTMLElement>(parent.children), (toRemove, child) => {
+			if (child.hasAttribute("data-template-clone")) {
+				toRemove.push(child);
+			}
+			return toRemove;
+		}, [] as HTMLElement[]).forEach(child => parent.removeChild(child));
 	}
-	export function getTemplate(tid: string): Template | undefined {
-		return templates[tid];
-	}
-	export function killAll(tid: string) {
-		let t = getTemplate(tid);
-		if (typeof t !== "undefined") {
-			let parent = t.source.parentElement as HTMLElement;
-			ArrayLike.reduce(ArrayLike.cast<HTMLElement>(parent.children), (toRemove, child) => {
-				if (child.hasAttribute("data-template-clone")) {
-					toRemove.push(child);
-				}
-				return toRemove;
-			}, [] as HTMLElement[]).forEach(child => parent.removeChild(child));
-		}
-	}
-
+	
 	interface RegexReplacer {
 		readonly regex: RegExp,
 		readonly replacement: string
@@ -32,7 +21,6 @@ namespace Templating {
 		return str.replace(replacer.regex, replacer.replacement);
 	}
 
-	export type TemplateCallback = (id: string, element: HTMLElement, root: HTMLElement, parent: HTMLElement) => void;
 	const validIdRegex = /^[a-z0-9 \-_]+$/i;
 	function argsToRegex(args: Utils.ReadonlyDictionary<string>): ReadonlyArray<RegexReplacer> {
 		let res: RegexReplacer[] = [];
@@ -51,51 +39,109 @@ namespace Templating {
 	function argReplace(str: string, args: ReadonlyArray<RegexReplacer>): string {
 		return args.reduce((prevStr, currRegex) => replace(prevStr, currRegex), str);
 	}
-	function resolveArgs(node: Node, args: ReadonlyArray<RegexReplacer>, root: HTMLElement, parent: HTMLElement, callback?: TemplateCallback) {
-		switch (node.nodeType) {
-			case Node.ELEMENT_NODE:
-				let hasCallback = false;
-				let attr: Attr;
-				ArrayLike.forEach(node.attributes, attr => {
-					attr.value = argReplace(attr.value, args);
-					hasCallback = hasCallback || attr.name === "data-template-callback";
-				});
-				ArrayLike.forEach(node.childNodes, child => {
-					resolveArgs(child, args, root, parent, callback);					
-				});
-				if (hasCallback && typeof callback !== "undefined") {
-					callback(node.attributes.getNamedItem("data-template-callback").value, node as HTMLElement, root, parent);
-				}
-				break;
-			case Node.TEXT_NODE:
-				node.textContent = argReplace(node.textContent as string, args);
-				break;
-		}
-	}
-	export function push(template: Template, args: Utils.ReadonlyDictionary<string>, callback?: TemplateCallback): HTMLElement {
+	export function pushTemplate(template: Template, args: Utils.ReadonlyDictionary<string>, callback?: (id: string, element: HTMLElement, root: HTMLElement, parent: HTMLElement) => void): HTMLElement {
+		console.log(template);
 		const newEle = template.source.cloneNode(true) as HTMLElement;
 		newEle.style.display = template.display;
 		newEle.setAttribute("data-template-clone", "");
 		let parent = template.source.parentElement as HTMLElement;
-		resolveArgs(newEle, argsToRegex(args), newEle, parent, callback);
+		let args2 = argsToRegex(args);
+		let tParent: Node | null = null;
+		Utils.domIterate(newEle, {
+			open: node => {
+				switch (node.nodeType) {
+					case Node.ELEMENT_NODE:
+						let node2 = node as HTMLElement;
+						let hasCallback = false;
+						let isTemplate = false;
+						let attr: Attr;
+						ArrayLike.forEach(node2.attributes, attr => {
+							attr.value = argReplace(attr.value, args2);
+						});
+						if (tParent === null) {
+							if (node2.hasAttribute("data-template")) {
+								tParent = node;
+							}
+						}
+						if (tParent === null) {
+							if (node2.hasAttribute("data-template-style")) {
+								let style = node2.getAttribute("style");
+								style = style || "";
+								style += node2.getAttribute("data-template-style") as string;
+								node2.setAttribute("style", style);
+								node2.removeAttribute("data-template-style");
+							}
+							if (typeof callback !== "undefined" && node2.hasAttribute("data-template-callback")) {
+								let id = node2.getAttribute("data-template-callback") as string;
+								node2.removeAttribute("data-template-callback");
+								callback(id, node2, newEle, parent);
+							}
+						}
+					break;
+					case Node.TEXT_NODE:
+						node.textContent = argReplace(node.textContent as string, args2);
+						break;
+				}
+				return false;
+			},
+			close: node => {
+				if (node === tParent) {
+					tParent = null;
+				}
+			}
+		}, true, Node.ELEMENT_NODE, Node.TEXT_NODE);
 		parent.appendChild(newEle);
 		return newEle;
 	}
 
-	export function setup() {
-		const elements = document.querySelectorAll("[data-template]");
-		ArrayLike.forEach(ArrayLike.cast<HTMLElement>(elements), element => {
-			const tid = element.getAttribute("data-template") as string;
-			if (templates.hasOwnProperty(tid)) {
-				console.error("Templater: Duplicate template ID \"" + tid + "\".");
+	export class Templater {
+		private templates: Utils.Dictionary<Template>;
+		public constructor(root: HTMLElement, includeSelf: boolean = false) {
+			let templates: HTMLElement[];
+			if (includeSelf && root.hasAttribute("data-template")) {
+				templates = [root];
 			} else {
-				element.removeAttribute("data-template");
-				templates[tid] = {
-					source: element,
-					display: element.style.display
-				};
-				element.style.display = "none";
+				const potential = root.querySelectorAll("[data-template]") as NodeListOf<HTMLElement>;
+				templates = ArrayLike.filter(potential, p => !Utils.hasParentWithAttribute(p, "data-template"));
 			}
-		});
+			let name;
+			this.templates = templates.reduce((obj, curr) => {
+				name = curr.getAttribute("data-template");
+				if (obj.hasOwnProperty(name)) {
+					console.error("Templater: Duplicate template ID \"" + name + "\".");
+				} else {
+					curr.removeAttribute("data-template");
+					obj[name] = {
+						source: curr,
+						display: curr.style.display
+					};
+					curr.style.display = "none";
+				}
+				return obj;
+			}, {} as Utils.Dictionary<Template>);
+		}
+		public getCount(): number {
+			return this.getIds().length;
+		}
+		public getIds(): ReadonlyArray<string> {
+			return Object.keys(this.templates);
+		}
+		public getTemplate(tid: string): Template | undefined {
+			return this.templates[tid];
+		}
+		public killTemplate(tid: string) {
+			let tmp = this.getTemplate(tid);
+			if (typeof tmp !== "undefined") {
+				killTemplate(tmp);			
+			}
+		}
+		public pushTemplate(tid: string, args: Utils.ReadonlyDictionary<string>, callback?: (id: string, element: HTMLElement, root: HTMLElement, parent: HTMLElement) => void): HTMLElement | undefined {
+			let tmp = this.getTemplate(tid);
+			let res;
+			if (typeof tmp !== "undefined") {
+				res = pushTemplate(tmp, args, callback);			
+			}
+			return res;
+		}
 	}
 }
