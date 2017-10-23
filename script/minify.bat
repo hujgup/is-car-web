@@ -6,7 +6,6 @@ call uglifyjs utils.js arrayLike.js ajax.js templating.js ui.js -c -m --toplevel
 REM uglify(uglify(x)) != uglify(x) in some situations, so by looping uglify calls we ensure the lowest possible file size
 set size=0
 FOR /F "usebackq" %%A IN ('%file%') DO set size=%%~zA
-echo %size%
 :begin
 	echo Minified to %size% bytes
 	set oldSize=%size%
