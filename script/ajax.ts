@@ -89,9 +89,9 @@ namespace Ajax {
 
 	export class Request {
 		private readonly headers: Utils.Dictionary<string>;
-		private readonly data: Utils.Dictionary<string>;
 		private readonly method: Method;
 		private readonly url: string;
+		private data: Utils.Dictionary<string>;
 		public constructor(method: Method, url: string) {
 			this.headers = {};
 			this.data = {};

@@ -314,17 +314,9 @@ namespace Output {
 	interface JsonErrorResponse {
 		readonly error: string
 	}
-	interface JsonTimeBound {
-		readonly pivot: string,
-		readonly inclusive: boolean
-	}
-	interface JsonTimeRange {
-		readonly lowerBound: JsonTimeBound,
-		readonly upperBound: JsonTimeBound
-	}
 	interface JsonTimetableEntry {
 		readonly id: number,
-		readonly range: JsonTimeRange
+		readonly range: JsonRange
 	}
 	interface JsonGoodResponse {
 		readonly result: ReadonlyArray<JsonTimetableEntry>
@@ -334,14 +326,14 @@ namespace Output {
 		return x.hasOwnProperty("error");
 	}
 	
-	function extractHour(b: JsonTimeBound, mod: number): number {
+	function extractHour(b: JsonBound, mod: number): number {
 		let res = parseInt(b.pivot.substr(0, 2));
 		if (!b.inclusive) {
 			res += mod;
 		}
 		return res;
 	}
-	function compressRanges(rngSet: ReadonlyArray<JsonTimeRange>, max: number): boolean[] {
+	function compressRanges(rngSet: ReadonlyArray<JsonRange>, max: number): boolean[] {
 		let res: boolean[] = Utils.Array.fill(false, max);
 		rngSet.forEach(rng => {
 			let low = extractHour(rng.lowerBound, 1);
@@ -377,7 +369,7 @@ namespace Output {
 			out.error.style.display = "none";
 			out.timetableContainer.style.display = null;
 			const templates: Utils.Dictionary<Templating.Templater> = {};
-			const times: Utils.Dictionary<JsonTimeRange[]> = {};
+			const times: Utils.Dictionary<JsonRange[]> = {};
 			jsonRes.result.forEach(entry => {
 				let carId = entry.id.toString();
 				if (!templates.hasOwnProperty(carId)) {
