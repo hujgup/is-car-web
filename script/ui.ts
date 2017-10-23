@@ -18,7 +18,7 @@ function getJsonData(area: HTMLTextAreaElement) {
 	return JSON.parse(area.value) as JsonData;
 }
 function writeJsonData(area: HTMLTextAreaElement, data: JsonData) {
-	area.value = JSON.stringify(data, undefined, "\t");
+	area.value = Utils.formatJson(data);
 }
 
 interface FormContainer {
@@ -363,7 +363,7 @@ namespace Output {
 	export function renderResponse(out: Data, id: number, status: number, json: string) {
 		Templating.killTemplate(out.timetableTemplate);
 		let jsonRes: JsonResponse = JSON.parse(json);
-		out.raw.textContent = JSON.stringify(jsonRes, undefined, "\t");
+		out.raw.textContent = Utils.formatJson(json);
 		out.car.textContent = id.toString();
 		out.status.textContent = status.toString();
 		if (isJsonErrorResponse(jsonRes)) {

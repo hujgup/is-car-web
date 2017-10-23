@@ -3,7 +3,7 @@ function getJsonData(area) {
     return JSON.parse(area.value);
 }
 function writeJsonData(area, data) {
-    area.value = JSON.stringify(data, undefined, "\t");
+    area.value = Utils.formatJson(data);
 }
 var GlobalForm;
 (function (GlobalForm) {
@@ -296,7 +296,7 @@ var Output;
     function renderResponse(out, id, status, json) {
         Templating.killTemplate(out.timetableTemplate);
         var jsonRes = JSON.parse(json);
-        out.raw.textContent = JSON.stringify(jsonRes, undefined, "\t");
+        out.raw.textContent = Utils.formatJson(json);
         out.car.textContent = id.toString();
         out.status.textContent = status.toString();
         if (isJsonErrorResponse(jsonRes)) {
