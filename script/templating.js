@@ -46,9 +46,6 @@ var Templating;
                 switch (node.nodeType) {
                     case Node.ELEMENT_NODE:
                         var node2 = node;
-                        var hasCallback = false;
-                        var isTemplate = false;
-                        var attr = void 0;
                         ArrayLike.forEach(node2.attributes, function (attr) {
                             attr.value = argReplace(attr.value, args2);
                         });

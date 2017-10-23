@@ -33,9 +33,6 @@ var Input;
             formSubmit(mode, mode.form, json, "constraints", out);
         }
         Global.setupListeners = setupListeners;
-        function updateField(inKey, outEle, json) {
-            outEle.value = json[inKey];
-        }
         function valueToInput(n, input, noChange) {
             if (n !== undefined) {
                 input.value = (Math.round(100 * n) / 100).toString();

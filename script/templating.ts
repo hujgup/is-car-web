@@ -52,9 +52,6 @@ namespace Templating {
 				switch (node.nodeType) {
 					case Node.ELEMENT_NODE:
 						let node2 = node as HTMLElement;
-						let hasCallback = false;
-						let isTemplate = false;
-						let attr: Attr;
 						ArrayLike.forEach(node2.attributes, attr => {
 							attr.value = argReplace(attr.value, args2);
 						});

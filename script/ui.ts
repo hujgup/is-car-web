@@ -53,9 +53,6 @@ namespace Input {
 			mode.inputFields.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
 			formSubmit(mode, mode.form, json, "constraints", out);
 		}
-		function updateField(inKey: string, outEle: HTMLInputElement, json: JsonData) {
-			outEle.value = json[inKey];
-		}
 		function valueToInput(n: number | undefined, input: HTMLInputElement, noChange: HTMLInputElement) {
 			if (n !== undefined) {
 				input.value = (Math.round(100*n)/100).toString();
