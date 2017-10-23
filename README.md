@@ -7,3 +7,8 @@ This project should be placed in, or in some subfolder of, your web server's roo
 To open this project in a browser, start your server and navigate to http://localhost/is-car-web/ if it's in your web server's root directory - otherwise, extra path information will be necessary.
 
 Be aware that this has only been tested to work in Chrome 62. On other browsers - especially IE - this solution is not guaranteed to work properly.
+
+To run minify.bat you need to [install Node.js and the Node Package Manager](https://nodejs.org/en/) then run the following command:
+```
+npm install -g uglify-js
+```
