@@ -70,14 +70,14 @@ namespace Input {
 			} else {
 				mode.formJson.style.display = "none";
 				mode.formFields.style.display = "";
-				let jsonData = getJsonData(json);
+				const jsonData = getJsonData(json);
 				valueToInput(jsonData.maxGridLoad, fields.gridLoad, fields.gridLoadNoChange);
 				valueToInput(jsonData.currentCharge, fields.currentCharge, fields.currentChargeNoChange);
 				valueToInput(jsonData.chargeCapacity, fields.maxCharge, fields.maxChargeNoChange);
 				valueToInput(jsonData.chargePerHour, fields.chargeRate, fields.chargeRateNoChange);
 				valueToInput(jsonData.chargeDrainPerHour, fields.chargeDrain, fields.chargeDrainNoChange);
 				Templating.killTemplate(fields.utTemplate);
-				let utCheckedValue = jsonData.unavailableTimes === undefined;
+				const utCheckedValue = jsonData.unavailableTimes === undefined;
 				if (!utCheckedValue) {
 					(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => Fields.pushUtTemplate(fields.utTemplate, ut, json));					
 				}
@@ -122,7 +122,7 @@ namespace Input {
 			readonly utTemplate: Templating.Template
 		}
 		function getNum(inEle: HTMLInputElement, callback: (n: number) => void) {
-			let value = parseFloat(inEle.value);
+			const value = parseFloat(inEle.value);
 			if (isNaN(value) || !isFinite(value)) {
 				console.error(inEle.id + " not a number.");
 			} else {
@@ -131,7 +131,7 @@ namespace Input {
 		}
 		function changeValue(inEle: HTMLInputElement, outKey: string, json: HTMLTextAreaElement) {
 			getNum(inEle, value => {
-				let jsonData = getJsonData(json);
+				const jsonData = getJsonData(json);
 				jsonData[outKey] = value;
 				writeJsonData(json, jsonData);
 			});
@@ -145,7 +145,7 @@ namespace Input {
 			dnc.addEventListener("change", () => {
 				inEle.disabled = dnc.checked;
 				if (dnc.checked) {
-					let jsonData = getJsonData(json);
+					const jsonData = getJsonData(json);
 					delete jsonData[outKey];
 					writeJsonData(json, jsonData);
 				} else {
@@ -163,7 +163,7 @@ namespace Input {
 		function rangeIndex(arr: ReadonlyArray<JsonRange>, rng: JsonRange) {
 			let res = -1;
 			arr.some((value, index) => {
-				let brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
+				const brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
 					&& value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
 				if (brk) {
 					res = index;
@@ -181,8 +181,8 @@ namespace Input {
 			}, (id, element, root, parent) => {
 				if (id === "remove-btn") {
 					element.addEventListener("click", () => {
-						let jsonData = getJsonData(json);
-						let jsonArr = jsonData.unavailableTimes as JsonRange[];
+						const jsonData = getJsonData(json);
+						const jsonArr = jsonData.unavailableTimes as JsonRange[];
 						jsonArr.splice(rangeIndex(jsonArr, rng), 1);
 						writeJsonData(json, jsonData);
 						parent.removeChild(root);
@@ -196,13 +196,12 @@ namespace Input {
 			f.utHighValue.disabled = f.utNoChange.checked;
 			f.utHighInclusive.disabled = f.utNoChange.checked;
 			f.utAddButton.disabled = f.utNoChange.checked;
+			const jsonData = getJsonData(json);
 			if (f.utNoChange.checked) {
 				Templating.killTemplate(f.utTemplate);
-				let jsonData = getJsonData(json);
 				delete jsonData.unavailableTimes;
 				writeJsonData(json, jsonData);
 			} else {
-				let jsonData = getJsonData(json);
 				jsonData.unavailableTimes = [];
 				writeJsonData(json, jsonData);			
 			}
@@ -219,7 +218,7 @@ namespace Input {
 					alert("Error: Cannot add an unavailable time range when the Do Not Change checkbox is checked.");
 				} else {
 					getNum(f.utLowValue, low => getNum(f.utHighValue, high => {
-						let rng: JsonRange = {
+						const rng: JsonRange = {
 							lowerBound: {
 								pivot: zeroPad(low),
 								inclusive: f.utLowInclusive.checked
@@ -229,7 +228,7 @@ namespace Input {
 								inclusive: f.utHighInclusive.checked
 							}
 						};
-						let jsonData = getJsonData(json);
+						const jsonData = getJsonData(json);
 						(jsonData.unavailableTimes as JsonRange[]).push(rng);
 						writeJsonData(json, jsonData);
 						pushUtTemplate(f.utTemplate, rng, json);
@@ -244,16 +243,16 @@ namespace Input {
 function formSubmit(f: Input.Global.Form, f2: HTMLFormElement, json: HTMLTextAreaElement, action: string, out: Output.Data) {
 	Utils.asyncFormSubmit(f2, () => new Promise<string>((resolve, reject) => {
 		try {
-			let port = Input.Global.getPort(f);
-			let portErr = Input.Global.validatePort(port);
+			const port = Input.Global.getPort(f);
+			const portErr = Input.Global.validatePort(port);
 			if (portErr) {
 				reject(portErr);
 			} else {
 				try {
-					let req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port + "/");
+					const req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port + "/");
 					let jsonText;
 					if (action === "constraints") {
-						let data: any = getJsonData(json);
+						const data: any = getJsonData(json);
 						data.action = action;
 						jsonText = JSON.stringify(data);
 					} else {
@@ -331,10 +330,10 @@ namespace Output {
 		return res;
 	}
 	function compressRanges(rngSet: ReadonlyArray<JsonRange>, max: number): boolean[] {
-		let res: boolean[] = Utils.Array.fill(false, max);
+		const res: boolean[] = Utils.Array.fill(false, max);
 		rngSet.forEach(rng => {
-			let low = extractHour(rng.lowerBound, 1);
-			let high = extractHour(rng.upperBound, -1);
+			const low = extractHour(rng.lowerBound, 1);
+			const high = extractHour(rng.upperBound, -1);
 			if (high < low) {
 				for (let i = low; i < max; i++) {
 					res[i] = true;
@@ -352,7 +351,7 @@ namespace Output {
 	}
 	export function renderResponse(out: Data, id: number, status: number, json: string) {
 		Templating.killTemplate(out.timetableTemplate);
-		let jsonRes: JsonResponse = JSON.parse(json);
+		const jsonRes: JsonResponse = JSON.parse(json);
 		out.raw.textContent = Utils.formatJson(json);
 		out.car.textContent = id.toString();
 		out.status.textContent = status.toString();
@@ -368,9 +367,9 @@ namespace Output {
 			const templates: Utils.Dictionary<Templating.Templater> = {};
 			const times: Utils.Dictionary<JsonRange[]> = {};
 			jsonRes.result.forEach(entry => {
-				let carId = entry.id.toString();
+				const carId = entry.id.toString();
 				if (!templates.hasOwnProperty(carId)) {
-					let tmp = Templating.pushTemplate(out.timetableTemplate, {
+					const tmp = Templating.pushTemplate(out.timetableTemplate, {
 						CAR: carId
 					});
 					templates[carId] = new Templating.Templater(tmp);
@@ -414,12 +413,12 @@ namespace Output {
 
 
 window.addEventListener("DOMContentLoaded", () => {
-	let masterTemplater = new Templating.Templater(document.body);
-	let jsonForm: Input.Json.Form = {
+	const masterTemplater = new Templating.Templater(document.body);
+	const jsonForm: Input.Json.Form = {
 		form: document.getElementById("form-json") as HTMLFormElement,
 		text: document.getElementById("input-json") as HTMLTextAreaElement
 	};
-	let fieldsForm: Input.Fields.Form = {
+	const fieldsForm: Input.Fields.Form = {
 		form: document.getElementById("form-fields") as HTMLFormElement,
 		gridLoad: document.getElementById("input-grid-load") as HTMLInputElement,
 		gridLoadNoChange: document.getElementById("input-grid-load-nc") as HTMLInputElement,
@@ -439,7 +438,7 @@ window.addEventListener("DOMContentLoaded", () => {
 		utNoChange: document.getElementById("input-ut-nc") as HTMLInputElement,
 		utTemplate: masterTemplater.getTemplate("ut") as Templating.Template
 	};
-	let globalForm: Input.Global.Form = {
+	const globalForm: Input.Global.Form = {
 		form: document.getElementById("form-global") as HTMLFormElement,
 		inputJson: document.getElementById("mode-json") as HTMLInputElement,
 		inputFields: document.getElementById("mode-fields") as HTMLInputElement,
@@ -447,8 +446,8 @@ window.addEventListener("DOMContentLoaded", () => {
 		formJson: jsonForm.form,
 		formFields: fieldsForm.form
 	};
-	let forceForm = document.getElementById("form-force") as HTMLFormElement;
-	let out: Output.Data = {
+	const forceForm = document.getElementById("form-force") as HTMLFormElement;
+	const out: Output.Data = {
 		inContainer: document.getElementById("sec-input") as HTMLElement,
 		outContainer: document.getElementById("sec-output") as HTMLElement,
 		visSection: document.getElementById("out-vis-sec") as HTMLElement,

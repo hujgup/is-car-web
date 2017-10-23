@@ -47,10 +47,10 @@ namespace Utils {
 	let queryObj: Dictionary<string>;
 	export function query() {
 		if (typeof queryObj === "undefined") {
-			let queryStr = location.search.substr(1).split("&");
+			const queryStr = location.search.substr(1).split("&");
 			queryObj = {};
 			queryStr.forEach(kvp => {
-				let kvp2 = kvp.split("=", 2);
+				const kvp2 = kvp.split("=", 2);
 				queryObj[decodeURIComponent(kvp2[0])] = decodeURIComponent(kvp2[1]);
 			});
 		}
@@ -92,7 +92,7 @@ namespace Utils {
 	export function dictionaryForEach<T>(dic: ReadonlyDictionary<T>, callback: (value: T, key: string, dic: ReadonlyDictionary<T>) => void);
 	export function dictionaryForEach<T>(dic: Dictionary<T>, callback: (value: T, key: string, dic: Dictionary<T>) => void);
 	export function dictionaryForEach<T>(dic: Dictionary<T> | ReadonlyDictionary<T>, callback: (value: T, key: string, dic: Dictionary<T> | ReadonlyDictionary<T>) => void) {
-		for (let key in dic) {
+		for (const key in dic) {
 			if (dic.hasOwnProperty(key)) {
 				callback(dic[key], key, dic);
 			}
@@ -127,7 +127,7 @@ namespace Utils {
 
 	export namespace Array {
 		export function fill<T>(value: T, size: number): T[] {
-			let res: T[] = [];
+			const res: T[] = [];
 			for (let i = 0; i < size; i++) {
 				res.push(value);
 			}

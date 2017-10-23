@@ -96,9 +96,8 @@ var Templating;
                 var potential = root.querySelectorAll("[data-template]");
                 templates = ArrayLike.filter(potential, function (p) { return !Utils.hasParentWithAttribute(p, "data-template"); });
             }
-            var name;
             this.templates = templates.reduce(function (obj, curr) {
-                name = curr.getAttribute("data-template");
+                var name = curr.getAttribute("data-template");
                 if (obj.hasOwnProperty(name)) {
                     console.error("Templater: Duplicate template ID \"" + name + "\".");
                 }

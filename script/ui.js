@@ -161,14 +161,13 @@ var Input;
             f.utHighValue.disabled = f.utNoChange.checked;
             f.utHighInclusive.disabled = f.utNoChange.checked;
             f.utAddButton.disabled = f.utNoChange.checked;
+            var jsonData = getJsonData(json);
             if (f.utNoChange.checked) {
                 Templating.killTemplate(f.utTemplate);
-                var jsonData = getJsonData(json);
                 delete jsonData.unavailableTimes;
                 writeJsonData(json, jsonData);
             }
             else {
-                var jsonData = getJsonData(json);
                 jsonData.unavailableTimes = [];
                 writeJsonData(json, jsonData);
             }

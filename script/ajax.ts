@@ -99,13 +99,13 @@ namespace Ajax {
 			this.url = url;
 		}
 		private encodeData(appendTo?: string) {
-			let preExisting = typeof appendTo === "string";
+			const preExisting = typeof appendTo === "string";
 			appendTo = preExisting ? appendTo as string : "";
 			let append = "";
 			if (preExisting) {
 				append += appendTo.indexOf("?") >= 0 ? "&" : "?";
 			}
-			for (let key in this.data) {
+			for (const key in this.data) {
 				if (this.data.hasOwnProperty(key)) {
 					append += encodeURIComponent(key);
 					append += "=";
@@ -151,19 +151,19 @@ namespace Ajax {
 			});
 		}
 		public execute(callback: Callback, mime?: string) {
-			let hasMime = typeof mime === "string";
-			let isPost = this.method === Method.POST;
-			let hasData = Utils.dictionaryNotEmpty(this.data);
+			const hasMime = typeof mime === "string";
+			const isPost = this.method === Method.POST;
+			const hasData = Utils.dictionaryNotEmpty(this.data);
 			let url = this.url;
 			if (hasData && !isPost) {
 				url = this.encodeData(url);
 			}
-			let req = new XMLHttpRequest();
+			const req = new XMLHttpRequest();
 			req.open(this.method, url, true);
 			if (isPost) {
 				req.setRequestHeader(Header.CONTENT_TYPE, "application/x-www-form-urlencoded");
 			}
-			for (let key in this.headers) {
+			for (const key in this.headers) {
 				if (this.headers.hasOwnProperty(key)) {
 					req.setRequestHeader(key, this.headers[key]);
 				}

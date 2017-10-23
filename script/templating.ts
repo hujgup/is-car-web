@@ -4,7 +4,7 @@ namespace Templating {
 		readonly display: string | null
 	}
 	export function killTemplate(template: Template) {
-		let parent = template.source.parentElement as HTMLElement;
+		const parent = template.source.parentElement as HTMLElement;
 		ArrayLike.reduce(ArrayLike.cast<HTMLElement>(parent.children), (toRemove, child) => {
 			if (child.hasAttribute("data-template-clone")) {
 				toRemove.push(child);
@@ -23,7 +23,7 @@ namespace Templating {
 
 	const validIdRegex = /^[a-z0-9 \-_]+$/i;
 	function argsToRegex(args: Utils.ReadonlyDictionary<string>): ReadonlyArray<RegexReplacer> {
-		let res: RegexReplacer[] = [];
+		const res: RegexReplacer[] = [];
 		Utils.dictionaryForEach(args, (value, key) => {
 			if (validIdRegex.test(key)) {
 				res.push({
@@ -44,14 +44,14 @@ namespace Templating {
 		const newEle = template.source.cloneNode(true) as HTMLElement;
 		newEle.style.display = template.display;
 		newEle.setAttribute("data-template-clone", "");
-		let parent = template.source.parentElement as HTMLElement;
-		let args2 = argsToRegex(args);
+		const parent = template.source.parentElement as HTMLElement;
+		const args2 = argsToRegex(args);
 		let tParent: Node | null = null;
 		Utils.domIterate(newEle, {
 			open: node => {
 				switch (node.nodeType) {
 					case Node.ELEMENT_NODE:
-						let node2 = node as HTMLElement;
+						const node2 = node as HTMLElement;
 						ArrayLike.forEach(node2.attributes, attr => {
 							attr.value = argReplace(attr.value, args2);
 						});
@@ -101,9 +101,8 @@ namespace Templating {
 				const potential = root.querySelectorAll("[data-template]") as NodeListOf<HTMLElement>;
 				templates = ArrayLike.filter(potential, p => !Utils.hasParentWithAttribute(p, "data-template"));
 			}
-			let name;
 			this.templates = templates.reduce((obj, curr) => {
-				name = curr.getAttribute("data-template");
+				const name = curr.getAttribute("data-template") as string;
 				if (obj.hasOwnProperty(name)) {
 					console.error("Templater: Duplicate template ID \"" + name + "\".");
 				} else {
@@ -127,13 +126,13 @@ namespace Templating {
 			return this.templates[tid];
 		}
 		public killTemplate(tid: string) {
-			let tmp = this.getTemplate(tid);
+			const tmp = this.getTemplate(tid);
 			if (typeof tmp !== "undefined") {
 				killTemplate(tmp);			
 			}
 		}
 		public pushTemplate(tid: string, args: Utils.ReadonlyDictionary<string>, callback?: (id: string, element: HTMLElement, root: HTMLElement, parent: HTMLElement) => void): HTMLElement | undefined {
-			let tmp = this.getTemplate(tid);
+			const tmp = this.getTemplate(tid);
 			let res;
 			if (typeof tmp !== "undefined") {
 				res = pushTemplate(tmp, args, callback);			
