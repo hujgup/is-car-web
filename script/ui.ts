@@ -338,7 +338,7 @@ namespace Output {
 				for (let i = low; i < max; i++) {
 					res[i] = true;
 				}
-				for (let i = 0; i < high; i++) {
+				for (let i = 0; i <= high; i++) {
 					res[i] = true;
 				}
 			} else {

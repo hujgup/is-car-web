@@ -280,7 +280,7 @@ var Output;
                 for (var i = low; i < max; i++) {
                     res[i] = true;
                 }
-                for (var i = 0; i < high; i++) {
+                for (var i = 0; i <= high; i++) {
                     res[i] = true;
                 }
             }
