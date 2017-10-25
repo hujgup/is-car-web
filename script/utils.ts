@@ -89,9 +89,9 @@ namespace Utils {
 	export function dictionaryNotEmpty<T>(dic: ReadonlyDictionary<T>): boolean {
 		return Object.keys(dic).length > 0;
 	}
-	export function dictionaryForEach<T>(dic: ReadonlyDictionary<T>, callback: (value: T, key: string, dic: ReadonlyDictionary<T>) => void);
-	export function dictionaryForEach<T>(dic: Dictionary<T>, callback: (value: T, key: string, dic: Dictionary<T>) => void);
-	export function dictionaryForEach<T>(dic: Dictionary<T> | ReadonlyDictionary<T>, callback: (value: T, key: string, dic: Dictionary<T> | ReadonlyDictionary<T>) => void) {
+	export function dictionaryForEach<T>(dic: ReadonlyDictionary<T>, callback: (value: T, key: string, dic: ReadonlyDictionary<T>) => void): void;
+	export function dictionaryForEach<T>(dic: Dictionary<T>, callback: (value: T, key: string, dic: Dictionary<T>) => void): void;
+	export function dictionaryForEach<T>(dic: Dictionary<T> | ReadonlyDictionary<T>, callback: (value: T, key: string, dic: Dictionary<T> | ReadonlyDictionary<T>) => void): void {
 		for (const key in dic) {
 			if (dic.hasOwnProperty(key)) {
 				callback(dic[key], key, dic);

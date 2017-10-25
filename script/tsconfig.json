@@ -1,6 +1,13 @@
 {
 	"compilerOptions": {
-		"strictNullChecks": true,
-		"alwaysStrict": true
+		"alwaysStrict": true,
+		"target": "es3",
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitAny": true,
+		"noImplicitReturns": true,
+		"noImplicitThis": true,
+		"noUnusedLocals": true,
+		"suppressImplicitAnyIndexErrors": true,
+		"strictNullChecks": true
 	}
 }
