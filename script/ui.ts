@@ -1,5 +1,5 @@
 interface JsonBound {
-	readonly pivot: string,
+	readonly value: string,
 	readonly inclusive: boolean
 }
 interface JsonRange {
@@ -163,8 +163,8 @@ namespace Input {
 		function rangeIndex(arr: ReadonlyArray<JsonRange>, rng: JsonRange) {
 			let res = -1;
 			arr.some((value, index) => {
-				const brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
-					&& value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
+				const brk = value.lowerBound.value === rng.lowerBound.value && value.lowerBound.inclusive == rng.lowerBound.inclusive
+					&& value.upperBound.value === rng.upperBound.value && value.upperBound.inclusive === rng.upperBound.inclusive;
 				if (brk) {
 					res = index;
 				}
@@ -174,9 +174,9 @@ namespace Input {
 		}
 		export function pushUtTemplate(template: Templating.Template, rng: JsonRange, json: HTMLTextAreaElement) {
 			Templating.pushTemplate(template, {
-				LOW: rng.lowerBound.pivot,
+				LOW: rng.lowerBound.value,
 				LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
-				HIGH: rng.upperBound.pivot,
+				HIGH: rng.upperBound.value,
 				HIGH_BRACKET: rng.upperBound.inclusive ? "]" : ")"
 			}, (id, element, root, parent) => {
 				if (id === "remove-btn") {
@@ -220,11 +220,11 @@ namespace Input {
 					getNum(f.utLowValue, low => getNum(f.utHighValue, high => {
 						const rng: JsonRange = {
 							lowerBound: {
-								pivot: zeroPad(low),
+								value: zeroPad(low),
 								inclusive: f.utLowInclusive.checked
 							},
 							upperBound: {
-								pivot: zeroPad(high),
+								value: zeroPad(high),
 								inclusive: f.utHighInclusive.checked
 							}
 						};
@@ -307,15 +307,41 @@ namespace Output {
 		readonly timetableSize: number
 	}
 	
+	interface JsonResponseBound {
+		readonly value: {
+			readonly hour: number
+		},
+		readonly inclusive: boolean
+	}
+	interface JsonResponseRange {
+		readonly low: JsonResponseBound,
+		readonly high: JsonResponseBound
+	}
 	interface JsonErrorResponse {
 		readonly error: string
 	}
 	interface JsonTimetableEntry {
-		readonly id: number,
-		readonly range: JsonRange
+		readonly id: {
+			readonly id: number
+		},
+		readonly range: JsonResponseRange
+	}
+	function toStdRange(rng: JsonResponseRange): JsonRange {
+		return {
+			lowerBound: {
+				value: rng.low.value.hour.toString(),
+				inclusive: rng.low.inclusive
+			},
+			upperBound: {
+				value: rng.high.value.hour.toString(),
+				inclusive: rng.high.inclusive
+			}
+		};
 	}
 	interface JsonGoodResponse {
-		readonly result: ReadonlyArray<JsonTimetableEntry>
+		readonly result: {
+			readonly entries: ReadonlyArray<JsonTimetableEntry>
+		}
 	}
 	type JsonResponse = JsonErrorResponse | JsonGoodResponse;
 	function isJsonErrorResponse(x: JsonResponse): x is JsonErrorResponse {
@@ -323,7 +349,7 @@ namespace Output {
 	}
 	
 	function extractHour(b: JsonBound, mod: number): number {
-		let res = parseInt(b.pivot.substr(0, 2));
+		let res = parseInt(b.value.substr(0, 2));
 		if (!b.inclusive) {
 			res += mod;
 		}
@@ -366,8 +392,9 @@ namespace Output {
 			out.timetableContainer.style.display = null;
 			const templates: Utils.Dictionary<Templating.Templater> = {};
 			const times: Utils.Dictionary<JsonRange[]> = {};
-			jsonRes.result.forEach(entry => {
-				const carId = entry.id.toString();
+			console.log(jsonRes);
+			jsonRes.result.entries.forEach(entry => {
+				const carId = entry.id.id.toString();
 				if (!templates.hasOwnProperty(carId)) {
 					const tmp = Templating.pushTemplate(out.timetableTemplate, {
 						CAR: carId
@@ -375,7 +402,7 @@ namespace Output {
 					templates[carId] = new Templating.Templater(tmp);
 					times[carId] = [];
 				}
-				times[carId].push(entry.range);
+				times[carId].push(toStdRange(entry.range));
 			});
 			Object.keys(templates).forEach(carId => {
 				compressRanges(times[carId], out.timetableSize).map((isOn, i) => {

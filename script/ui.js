@@ -127,8 +127,8 @@ var Input;
         function rangeIndex(arr, rng) {
             var res = -1;
             arr.some(function (value, index) {
-                var brk = value.lowerBound.pivot === rng.lowerBound.pivot && value.lowerBound.inclusive == rng.lowerBound.inclusive
-                    && value.upperBound.pivot === rng.upperBound.pivot && value.upperBound.inclusive === rng.upperBound.inclusive;
+                var brk = value.lowerBound.value === rng.lowerBound.value && value.lowerBound.inclusive == rng.lowerBound.inclusive
+                    && value.upperBound.value === rng.upperBound.value && value.upperBound.inclusive === rng.upperBound.inclusive;
                 if (brk) {
                     res = index;
                 }
@@ -138,9 +138,9 @@ var Input;
         }
         function pushUtTemplate(template, rng, json) {
             Templating.pushTemplate(template, {
-                LOW: rng.lowerBound.pivot,
+                LOW: rng.lowerBound.value,
                 LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
-                HIGH: rng.upperBound.pivot,
+                HIGH: rng.upperBound.value,
                 HIGH_BRACKET: rng.upperBound.inclusive ? "]" : ")"
             }, function (id, element, root, parent) {
                 if (id === "remove-btn") {
@@ -187,11 +187,11 @@ var Input;
                     getNum(f.utLowValue, function (low) { return getNum(f.utHighValue, function (high) {
                         var rng = {
                             lowerBound: {
-                                pivot: zeroPad(low),
+                                value: zeroPad(low),
                                 inclusive: f.utLowInclusive.checked
                             },
                             upperBound: {
-                                pivot: zeroPad(high),
+                                value: zeroPad(high),
                                 inclusive: f.utHighInclusive.checked
                             }
                         };
@@ -261,11 +261,23 @@ function formSubmit(f, f2, json, action, out) {
 }
 var Output;
 (function (Output) {
+    function toStdRange(rng) {
+        return {
+            lowerBound: {
+                value: rng.low.value.hour.toString(),
+                inclusive: rng.low.inclusive
+            },
+            upperBound: {
+                value: rng.high.value.hour.toString(),
+                inclusive: rng.high.inclusive
+            }
+        };
+    }
     function isJsonErrorResponse(x) {
         return x.hasOwnProperty("error");
     }
     function extractHour(b, mod) {
-        var res = parseInt(b.pivot.substr(0, 2));
+        var res = parseInt(b.value.substr(0, 2));
         if (!b.inclusive) {
             res += mod;
         }
@@ -310,8 +322,9 @@ var Output;
             out.timetableContainer.style.display = null;
             var templates_1 = {};
             var times_1 = {};
-            jsonRes.result.forEach(function (entry) {
-                var carId = entry.id.toString();
+            console.log(jsonRes);
+            jsonRes.result.entries.forEach(function (entry) {
+                var carId = entry.id.id.toString();
                 if (!templates_1.hasOwnProperty(carId)) {
                     var tmp = Templating.pushTemplate(out.timetableTemplate, {
                         CAR: carId
@@ -319,7 +332,7 @@ var Output;
                     templates_1[carId] = new Templating.Templater(tmp);
                     times_1[carId] = [];
                 }
-                times_1[carId].push(entry.range);
+                times_1[carId].push(toStdRange(entry.range));
             });
             Object.keys(templates_1).forEach(function (carId) {
                 compressRanges(times_1[carId], out.timetableSize).map(function (isOn, i) {
