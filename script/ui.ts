@@ -27,12 +27,14 @@ interface FormContainer {
 
 namespace Input {
 	export namespace Global {
+		export type ButtonSet = ArrayLike.Type<HTMLInputElement| HTMLButtonElement | (() => ButtonSet)>;
 		export interface Form extends FormContainer {
 			readonly inputJson: HTMLInputElement,
 			readonly inputFields: HTMLInputElement,
 			readonly inputPort: HTMLInputElement,
 			readonly formJson: HTMLFormElement,
-			readonly formFields: HTMLFormElement
+			readonly formFields: HTMLFormElement,
+			readonly buttons: ButtonSet
 		}
 		export function getPort(f: Form): number {
 			return parseInt(f.inputPort.value);
@@ -240,6 +242,15 @@ namespace Input {
 	}	
 }
 
+function switchButtonDisabled(btns: Input.Global.ButtonSet, disabled: boolean) {
+	ArrayLike.forEach(btns, x => {
+		if (typeof x === "function") {
+			switchButtonDisabled(x(), disabled);
+		} else {
+			x.disabled = disabled;
+		}
+	});
+}
 function formSubmit(f: Input.Global.Form, f2: HTMLFormElement, json: HTMLTextAreaElement, action: string, out: Output.Data) {
 	Utils.asyncFormSubmit(f2, () => new Promise<string>((resolve, reject) => {
 		try {
@@ -249,6 +260,7 @@ function formSubmit(f: Input.Global.Form, f2: HTMLFormElement, json: HTMLTextAre
 				reject(portErr);
 			} else {
 				try {
+					switchButtonDisabled(f.buttons, true);
 					const req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port + "/");
 					let jsonText;
 					if (action === "constraints") {
@@ -264,6 +276,7 @@ function formSubmit(f: Input.Global.Form, f2: HTMLFormElement, json: HTMLTextAre
 						"json": jsonText
 					});		
 					req.execute(res => {
+						switchButtonDisabled(f.buttons, false);
 						if (res.status !== 0) {
 							Output.renderResponse(out, port, res.status, res.text);
 							//resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
@@ -378,7 +391,7 @@ namespace Output {
 	export function renderResponse(out: Data, id: number, status: number, json: string) {
 		Templating.killTemplate(out.timetableTemplate);
 		const jsonRes: JsonResponse = JSON.parse(json);
-		out.raw.textContent = Utils.formatJson(json);
+		out.raw.textContent = Utils.formatJson(jsonRes);
 		out.car.textContent = id.toString();
 		out.status.textContent = status.toString();
 		if (isJsonErrorResponse(jsonRes)) {
@@ -471,7 +484,14 @@ window.addEventListener("DOMContentLoaded", () => {
 		inputFields: document.getElementById("mode-fields") as HTMLInputElement,
 		inputPort: document.getElementById("port") as HTMLInputElement,
 		formJson: jsonForm.form,
-		formFields: fieldsForm.form
+		formFields: fieldsForm.form,
+		buttons: [
+			document.getElementById("json-submit") as HTMLInputElement,
+			document.getElementById("fields-submit") as HTMLInputElement,
+			document.getElementById("force-submit") as HTMLInputElement,
+			fieldsForm.utAddButton,
+			() => ArrayLike.toArray((fieldsForm.utTemplate.source.parentElement as HTMLElement).getElementsByTagName("button"))
+		]
 	};
 	const forceForm = document.getElementById("form-force") as HTMLFormElement;
 	const out: Output.Data = {

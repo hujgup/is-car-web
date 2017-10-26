@@ -207,6 +207,16 @@ var Input;
         Fields.setupListeners = setupListeners;
     })(Fields = Input.Fields || (Input.Fields = {}));
 })(Input || (Input = {}));
+function switchButtonDisabled(btns, disabled) {
+    ArrayLike.forEach(btns, function (x) {
+        if (typeof x === "function") {
+            switchButtonDisabled(x(), disabled);
+        }
+        else {
+            x.disabled = disabled;
+        }
+    });
+}
 function formSubmit(f, f2, json, action, out) {
     Utils.asyncFormSubmit(f2, function () { return new Promise(function (resolve, reject) {
         try {
@@ -217,6 +227,7 @@ function formSubmit(f, f2, json, action, out) {
             }
             else {
                 try {
+                    switchButtonDisabled(f.buttons, true);
                     var req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port_1 + "/");
                     var jsonText = void 0;
                     if (action === "constraints") {
@@ -233,6 +244,7 @@ function formSubmit(f, f2, json, action, out) {
                         "json": jsonText
                     });
                     req.execute(function (res) {
+                        switchButtonDisabled(f.buttons, false);
                         if (res.status !== 0) {
                             Output.renderResponse(out, port_1, res.status, res.text);
                             //resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
@@ -307,7 +319,7 @@ var Output;
     function renderResponse(out, id, status, json) {
         Templating.killTemplate(out.timetableTemplate);
         var jsonRes = JSON.parse(json);
-        out.raw.textContent = Utils.formatJson(json);
+        out.raw.textContent = Utils.formatJson(jsonRes);
         out.car.textContent = id.toString();
         out.status.textContent = status.toString();
         if (isJsonErrorResponse(jsonRes)) {
@@ -402,7 +414,14 @@ window.addEventListener("DOMContentLoaded", function () {
         inputFields: document.getElementById("mode-fields"),
         inputPort: document.getElementById("port"),
         formJson: jsonForm.form,
-        formFields: fieldsForm.form
+        formFields: fieldsForm.form,
+        buttons: [
+            document.getElementById("json-submit"),
+            document.getElementById("fields-submit"),
+            document.getElementById("force-submit"),
+            fieldsForm.utAddButton,
+            function () { return ArrayLike.toArray(fieldsForm.utTemplate.source.parentElement.getElementsByTagName("button")); }
+        ]
     };
     var forceForm = document.getElementById("form-force");
     var out = {
