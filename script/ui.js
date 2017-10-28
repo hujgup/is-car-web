@@ -273,48 +273,8 @@ function formSubmit(f, f2, json, action, out) {
 }
 var Output;
 (function (Output) {
-    function toStdRange(rng) {
-        return {
-            lowerBound: {
-                value: rng.low.value.hour.toString(),
-                inclusive: rng.low.inclusive
-            },
-            upperBound: {
-                value: rng.high.value.hour.toString(),
-                inclusive: rng.high.inclusive
-            }
-        };
-    }
     function isJsonErrorResponse(x) {
         return x.hasOwnProperty("error");
-    }
-    function extractHour(b, mod) {
-        var res = parseInt(b.value.substr(0, 2));
-        if (!b.inclusive) {
-            res += mod;
-        }
-        return res;
-    }
-    function compressRanges(rngSet, max) {
-        var res = Utils.Array.fill(false, max);
-        rngSet.forEach(function (rng) {
-            var low = extractHour(rng.lowerBound, 1);
-            var high = extractHour(rng.upperBound, -1);
-            if (high < low) {
-                for (var i = low; i < max; i++) {
-                    res[i] = true;
-                }
-                for (var i = 0; i <= high; i++) {
-                    res[i] = true;
-                }
-            }
-            else {
-                for (var i = low; i <= high; i++) {
-                    res[i] = true;
-                }
-            }
-        });
-        return res;
     }
     function renderResponse(out, id, status, json) {
         Templating.killTemplate(out.timetableTemplate);
@@ -335,23 +295,30 @@ var Output;
             var templates_1 = {};
             var times_1 = {};
             console.log(jsonRes);
-            jsonRes.result.entries.forEach(function (entry) {
-                var carId = entry.id.id.toString();
+            jsonRes.result.forEach(function (entry) {
+                var carId = entry.id.toString();
+                if (times_1.hasOwnProperty(carId)) {
+                    // ArrayLike.concat gets TS to shut up about only readonly arrays being allowed as a concat argument
+                    times_1[carId] = ArrayLike.concat(times_1[carId], entry.slots);
+                }
+                else {
+                    times_1[carId] = entry.slots;
+                }
                 if (!templates_1.hasOwnProperty(carId)) {
                     var tmp = Templating.pushTemplate(out.timetableTemplate, {
                         CAR: carId
                     });
                     templates_1[carId] = new Templating.Templater(tmp);
-                    times_1[carId] = [];
                 }
-                times_1[carId].push(toStdRange(entry.range));
             });
-            Object.keys(templates_1).forEach(function (carId) {
-                compressRanges(times_1[carId], out.timetableSize).map(function (isOn, i) {
-                    templates_1[carId].pushTemplate(out.timetableSubTemplateId, {
-                        CLASS: isOn ? "tt-range" : ""
+            var time_1;
+            Utils.dictionaryForEach(templates_1, function (value, key) {
+                time_1 = times_1[key];
+                for (var i = 0; i < out.timetableSize; i++) {
+                    value.pushTemplate(out.timetableSubTemplateId, {
+                        CLASS: time_1.indexOf(i) >= 0 ? "tt-range" : ""
                     });
-                });
+                }
             });
         }
         out.inContainer.style.display = "none";

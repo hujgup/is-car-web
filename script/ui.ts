@@ -320,74 +320,21 @@ namespace Output {
 		readonly timetableSize: number
 	}
 	
-	interface JsonResponseBound {
-		readonly value: {
-			readonly hour: number
-		},
-		readonly inclusive: boolean
-	}
-	interface JsonResponseRange {
-		readonly low: JsonResponseBound,
-		readonly high: JsonResponseBound
-	}
 	interface JsonErrorResponse {
 		readonly error: string
 	}
 	interface JsonTimetableEntry {
-		readonly id: {
-			readonly id: number
-		},
-		readonly range: JsonResponseRange
-	}
-	function toStdRange(rng: JsonResponseRange): JsonRange {
-		return {
-			lowerBound: {
-				value: rng.low.value.hour.toString(),
-				inclusive: rng.low.inclusive
-			},
-			upperBound: {
-				value: rng.high.value.hour.toString(),
-				inclusive: rng.high.inclusive
-			}
-		};
+		readonly id: number,
+		readonly slots: number[]
 	}
 	interface JsonGoodResponse {
-		readonly result: {
-			readonly entries: ReadonlyArray<JsonTimetableEntry>
-		}
+		readonly result: ReadonlyArray<JsonTimetableEntry>
 	}
 	type JsonResponse = JsonErrorResponse | JsonGoodResponse;
 	function isJsonErrorResponse(x: JsonResponse): x is JsonErrorResponse {
 		return x.hasOwnProperty("error");
 	}
 	
-	function extractHour(b: JsonBound, mod: number): number {
-		let res = parseInt(b.value.substr(0, 2));
-		if (!b.inclusive) {
-			res += mod;
-		}
-		return res;
-	}
-	function compressRanges(rngSet: ReadonlyArray<JsonRange>, max: number): boolean[] {
-		const res: boolean[] = Utils.Array.fill(false, max);
-		rngSet.forEach(rng => {
-			const low = extractHour(rng.lowerBound, 1);
-			const high = extractHour(rng.upperBound, -1);
-			if (high < low) {
-				for (let i = low; i < max; i++) {
-					res[i] = true;
-				}
-				for (let i = 0; i <= high; i++) {
-					res[i] = true;
-				}
-			} else {
-				for (let i = low; i <= high; i++) {
-					res[i] = true;
-				}
-			}
-		});
-		return res;
-	}
 	export function renderResponse(out: Data, id: number, status: number, json: string) {
 		Templating.killTemplate(out.timetableTemplate);
 		const jsonRes: JsonResponse = JSON.parse(json);
@@ -404,25 +351,31 @@ namespace Output {
 			out.error.style.display = "none";
 			out.timetableContainer.style.display = null;
 			const templates: Utils.Dictionary<Templating.Templater> = {};
-			const times: Utils.Dictionary<JsonRange[]> = {};
+			const times: Utils.Dictionary<ReadonlyArray<number>> = {};
 			console.log(jsonRes);
-			jsonRes.result.entries.forEach(entry => {
-				const carId = entry.id.id.toString();
+			jsonRes.result.forEach(entry => {
+				const carId = entry.id.toString();
+				if (times.hasOwnProperty(carId)) {
+					// ArrayLike.concat gets TS to shut up about only readonly arrays being allowed as a concat argument
+					times[carId] = ArrayLike.concat(times[carId], entry.slots);
+				} else {
+					times[carId] = entry.slots;
+				}
 				if (!templates.hasOwnProperty(carId)) {
 					const tmp = Templating.pushTemplate(out.timetableTemplate, {
 						CAR: carId
 					});
 					templates[carId] = new Templating.Templater(tmp);
-					times[carId] = [];
 				}
-				times[carId].push(toStdRange(entry.range));
 			});
-			Object.keys(templates).forEach(carId => {
-				compressRanges(times[carId], out.timetableSize).map((isOn, i) => {
-					templates[carId].pushTemplate(out.timetableSubTemplateId, {
-						CLASS: isOn ? "tt-range" : ""
+			let time;
+			Utils.dictionaryForEach(templates, (value, key) => {
+				time = times[key];
+				for (let i = 0; i < out.timetableSize; i++) {
+					value.pushTemplate(out.timetableSubTemplateId, {
+						CLASS: time.indexOf(i) >= 0 ? "tt-range" : ""
 					});
-				});
+				}
 			});
 		}
 		out.inContainer.style.display = "none";
