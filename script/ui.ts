@@ -17,8 +17,15 @@ interface JsonData {
 function getJsonData(area: HTMLTextAreaElement) {
 	return JSON.parse(area.value) as JsonData;
 }
-function writeJsonData(area: HTMLTextAreaElement, data: JsonData) {
-	area.value = Utils.formatJson(data);
+function writeJsonData(area: HTMLTextAreaElement, data: JsonData | string, f: Input.Global.Form): void {
+	const json = typeof data === "string" ? Utils.expandJson(data) : Utils.formatJson(data);
+	if (f.currentCid !== null) {
+		f.jsonData[f.currentCid] = json;
+	}
+	area.value = json;
+}
+function switchJsonData(area: HTMLTextAreaElement, f: Input.Global.Form): void {
+	writeJsonData(area, f.currentCid === null || !f.jsonData.hasOwnProperty(f.currentCid) ? f.defaultJson : f.jsonData[f.currentCid], f);
 }
 
 interface FormContainer {
@@ -31,28 +38,92 @@ namespace Input {
 		export interface Form extends FormContainer {
 			readonly inputJson: HTMLInputElement,
 			readonly inputFields: HTMLInputElement,
-			readonly inputPort: HTMLInputElement,
 			readonly formJson: HTMLFormElement,
 			readonly formFields: HTMLFormElement,
-			readonly buttons: ButtonSet
+			readonly carsContainer: HTMLElement,
+			readonly addCarButton: HTMLButtonElement,
+			readonly mutatorButtons: ButtonSet,
+			readonly jsonData: Utils.Dictionary<string>,
+			readonly defaultJson: string,
+			readonly cidTemplate: Templating.Template,
+			currentCid: string | null
 		}
 		export function getPort(f: Form): number {
-			return parseInt(f.inputPort.value);
+			return f.currentCid !== null ? parseInt(f.currentCid) : -1;
 		}
 		export function validatePort(port: number): string | undefined {
 			let res: string | undefined = undefined;
 			if (isNaN(port)) {
-				res = "Port number is not a number.";
+				res = "Car ID is not a number.";
 			} else if (port%1 !== 0) {
-				res = "Port number must be an integer.";
+				res = "Car ID must be an integer.";
+			} else if (port === -1) {
+				res = "You must choose a car to update. If no cars exist, press the \"Add New Car\" button.";
 			} else if (port < 8080 || port > 28080) {
-				res = "Port number must be between 8080 and 28080, inclusive.";
+				res = "Car ID must be between 8080 and 28080, inclusive.";
 			}
 			return res;
+		}
+		function carSpool(f: Form, cid: string | null, callback: Ajax.Callback): void {
+			switchButtonDisabled(f.mutatorButtons, true);
+			const req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080");
+			req.setData({
+				json: JSON.stringify({
+					action: cid !== null ? "removeCar" : "addCar",
+					id: cid
+				})
+			});
+			req.execute(function(res) {
+				if (Ajax.responseIsSuccess(res)) {
+					callback.apply(undefined, arguments);
+				} else if (res.status === 0) {
+					alert("Error: JADE was not activated, or the provided port number was incorrect.");
+				} else {
+					alert("Error: " + JSON.parse(res.text).error);
+				}
+				switchButtonDisabled(f.mutatorButtons, false);
+			});
+		}
+		export function addCar(f: Form, fields: Fields.Form, json: HTMLTextAreaElement, cid: string): void {
+			f.jsonData[cid] = f.defaultJson;
+			f.currentCid = cid;
+			switchDisplayedForm(f, fields, json);
+			Templating.pushTemplate(f.cidTemplate, {
+				CID: cid
+			}, (id, element: HTMLInputElement, root, parent) => {
+				if (id === "remove-btn") {
+					element.addEventListener("click", () => {
+						carSpool(f, cid, res => {
+							const jsonRes = JSON.parse(res.text);
+							if (jsonRes.hasOwnProperty("error")) {
+								alert(jsonRes.error);
+							} else {
+								delete f.jsonData[cid];
+								if (f.currentCid === cid) {
+									const keys = Object.keys(f.jsonData);
+									f.currentCid = keys.length > 0 ? keys[0] : null;
+									switchDisplayedForm(f, fields, json);
+								}
+								parent.removeChild(root);
+							}
+						});
+					});
+				} else if (id === "switch-car") {
+					element.addEventListener("change", () => {
+						f.currentCid = cid;
+						switchDisplayedForm(f, fields, json);
+					});
+				}
+			});
 		}
 		export function setupListeners(mode: Form, fields: Fields.Form, json: HTMLTextAreaElement, out: Output.Data) {
 			mode.inputJson.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
 			mode.inputFields.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
+			mode.addCarButton.addEventListener("click", () => {
+				carSpool(mode, null, res => {
+					addCar(mode, fields, json, res.text);
+				});
+			});
 			formSubmit(mode, mode.form, json, "constraints", out);
 		}
 		function valueToInput(n: number | undefined, input: HTMLInputElement, noChange: HTMLInputElement) {
@@ -66,6 +137,7 @@ namespace Input {
 			input.disabled = noChange.checked;
 		}
 		export function switchDisplayedForm(mode: Form, fields: Fields.Form, json: HTMLTextAreaElement) {
+			switchJsonData(json, mode);
 			if (mode.inputJson.checked) {
 				mode.formJson.style.display = "";
 				mode.formFields.style.display = "none";
@@ -81,7 +153,7 @@ namespace Input {
 				Templating.killTemplate(fields.utTemplate);
 				const utCheckedValue = jsonData.unavailableTimes === undefined;
 				if (!utCheckedValue) {
-					(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => Fields.pushUtTemplate(fields.utTemplate, ut, json));					
+					(jsonData.unavailableTimes as JsonRange[]).forEach((ut: JsonRange) => Fields.pushUtTemplate(fields.utTemplate, ut, json, mode));					
 				}
 				fields.utNoChange.checked = utCheckedValue;
 				fields.utLowValue.disabled = utCheckedValue;
@@ -99,6 +171,11 @@ namespace Input {
 			readonly text: HTMLTextAreaElement
 		}
 		export function setupListeners(mode: Global.Form, f: Form, json: HTMLTextAreaElement, out: Output.Data) {
+			json.addEventListener("change", () => {
+				if (mode.currentCid !== null) {
+					mode.jsonData[mode.currentCid] = json.value;
+				}
+			});
 			formSubmit(mode, f.form, json, "constraints", out);
 		}
 	}
@@ -131,17 +208,17 @@ namespace Input {
 				callback(value);
 			}	
 		}
-		function changeValue(inEle: HTMLInputElement, outKey: string, json: HTMLTextAreaElement) {
+		function changeValue(inEle: HTMLInputElement, outKey: string, json: HTMLTextAreaElement, f: Global.Form) {
 			getNum(inEle, value => {
 				const jsonData = getJsonData(json);
 				jsonData[outKey] = value;
-				writeJsonData(json, jsonData);
+				writeJsonData(json, jsonData, f);
 			});
 		}
-		function change(inEle: HTMLInputElement, outKey: string, dnc: HTMLInputElement, json: HTMLTextAreaElement) {
+		function change(inEle: HTMLInputElement, outKey: string, dnc: HTMLInputElement, json: HTMLTextAreaElement, f: Global.Form) {
 			inEle.addEventListener("change", () => {
 				if (!dnc.checked) {
-					changeValue(inEle, outKey, json);				
+					changeValue(inEle, outKey, json, f);				
 				}
 			});
 			dnc.addEventListener("change", () => {
@@ -149,9 +226,9 @@ namespace Input {
 				if (dnc.checked) {
 					const jsonData = getJsonData(json);
 					delete jsonData[outKey];
-					writeJsonData(json, jsonData);
+					writeJsonData(json, jsonData, f);
 				} else {
-					changeValue(inEle, outKey, json)
+					changeValue(inEle, outKey, json, f)
 				}
 			});
 		}
@@ -174,7 +251,7 @@ namespace Input {
 			});
 			return res;
 		}
-		export function pushUtTemplate(template: Templating.Template, rng: JsonRange, json: HTMLTextAreaElement) {
+		export function pushUtTemplate(template: Templating.Template, rng: JsonRange, json: HTMLTextAreaElement, f: Global.Form) {
 			Templating.pushTemplate(template, {
 				LOW: rng.lowerBound.value,
 				LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
@@ -186,13 +263,13 @@ namespace Input {
 						const jsonData = getJsonData(json);
 						const jsonArr = jsonData.unavailableTimes as JsonRange[];
 						jsonArr.splice(rangeIndex(jsonArr, rng), 1);
-						writeJsonData(json, jsonData);
+						writeJsonData(json, jsonData, f);
 						parent.removeChild(root);
 					});
 				}
 			});
 		}
-		function utSwitchEnable(f: Form, json: HTMLTextAreaElement) {
+		function utSwitchEnable(f: Form, json: HTMLTextAreaElement, fGlobal: Global.Form) {
 			f.utLowValue.disabled = f.utNoChange.checked;
 			f.utLowInclusive.disabled = f.utNoChange.checked;
 			f.utHighValue.disabled = f.utNoChange.checked;
@@ -202,19 +279,19 @@ namespace Input {
 			if (f.utNoChange.checked) {
 				Templating.killTemplate(f.utTemplate);
 				delete jsonData.unavailableTimes;
-				writeJsonData(json, jsonData);
+				writeJsonData(json, jsonData, fGlobal);
 			} else {
 				jsonData.unavailableTimes = [];
-				writeJsonData(json, jsonData);			
+				writeJsonData(json, jsonData, fGlobal);			
 			}
 		}
 		export function setupListeners(mode: Global.Form, f: Form, json: HTMLTextAreaElement, out: Output.Data) {
-			change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
-			change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
-			change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
-			change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json);
-			change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json);
-			f.utNoChange.addEventListener("change", () => utSwitchEnable(f, json));
+			change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json, mode);
+			change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json, mode);
+			change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json, mode);
+			change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json, mode);
+			change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json, mode);
+			f.utNoChange.addEventListener("change", () => utSwitchEnable(f, json, mode));
 			f.utAddButton.addEventListener("click", () => {
 				if (f.utNoChange.checked) {
 					alert("Error: Cannot add an unavailable time range when the Do Not Change checkbox is checked.");
@@ -232,8 +309,8 @@ namespace Input {
 						};
 						const jsonData = getJsonData(json);
 						(jsonData.unavailableTimes as JsonRange[]).push(rng);
-						writeJsonData(json, jsonData);
-						pushUtTemplate(f.utTemplate, rng, json);
+						writeJsonData(json, jsonData, mode);
+						pushUtTemplate(f.utTemplate, rng, json, mode);
 					}));
 				}
 			});
@@ -260,7 +337,7 @@ function formSubmit(f: Input.Global.Form, f2: HTMLFormElement, json: HTMLTextAre
 				reject(portErr);
 			} else {
 				try {
-					switchButtonDisabled(f.buttons, true);
+					switchButtonDisabled(f.mutatorButtons, true);
 					const req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port + "/");
 					let jsonText;
 					if (action === "constraints") {
@@ -273,10 +350,10 @@ function formSubmit(f: Input.Global.Form, f2: HTMLFormElement, json: HTMLTextAre
 						});
 					}
 					req.setData({
-						"json": jsonText
+						json: jsonText
 					});		
 					req.execute(res => {
-						switchButtonDisabled(f.buttons, false);
+						switchButtonDisabled(f.mutatorButtons, false);
 						if (res.status !== 0) {
 							Output.renderResponse(out, port, res.status, res.text);
 							//resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
@@ -404,7 +481,6 @@ namespace Output {
 	}
 }
 
-
 window.addEventListener("DOMContentLoaded", () => {
 	const masterTemplater = new Templating.Templater(document.body);
 	const jsonForm: Input.Json.Form = {
@@ -435,16 +511,21 @@ window.addEventListener("DOMContentLoaded", () => {
 		form: document.getElementById("form-global") as HTMLFormElement,
 		inputJson: document.getElementById("mode-json") as HTMLInputElement,
 		inputFields: document.getElementById("mode-fields") as HTMLInputElement,
-		inputPort: document.getElementById("port") as HTMLInputElement,
 		formJson: jsonForm.form,
 		formFields: fieldsForm.form,
-		buttons: [
+		carsContainer: document.getElementById("cars") as HTMLElement,
+		addCarButton: document.getElementById("add-car-btn") as HTMLButtonElement,
+		mutatorButtons: [
 			document.getElementById("json-submit") as HTMLInputElement,
 			document.getElementById("fields-submit") as HTMLInputElement,
 			document.getElementById("force-submit") as HTMLInputElement,
 			fieldsForm.utAddButton,
-			() => ArrayLike.toArray((fieldsForm.utTemplate.source.parentElement as HTMLElement).getElementsByTagName("button"))
-		]
+			() => document.getElementsByTagName("button")
+		],
+		jsonData: {},
+		defaultJson: JSON.parse(jsonForm.text.value),
+		currentCid: null,
+		cidTemplate: masterTemplater.getTemplate("cid") as Templating.Template
 	};
 	const forceForm = document.getElementById("form-force") as HTMLFormElement;
 	const out: Output.Data = {
@@ -478,6 +559,24 @@ window.addEventListener("DOMContentLoaded", () => {
 	formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
 	Input.Global.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
 	Output.setupListeners(out);
+	switchButtonDisabled(globalForm.mutatorButtons, true);
+	const req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080/");
+	req.setData({
+		json: JSON.stringify({
+			action: "getCars"
+		})
+	});
+	const stdErr = "UI layer is unusable if JADE is not activated. Please start JADE and refresh this page.";
+	req.execute(res => {
+		if (Ajax.responseIsSuccess(res)) {
+			(JSON.parse(res.text) as string[]).forEach(cid => Input.Global.addCar(globalForm, fieldsForm, jsonForm.text, cid));
+			switchButtonDisabled(globalForm.mutatorButtons, false);
+		} else if (res.status === 0) {
+			alert(stdErr);
+		} else {
+			alert(stdErr + "\nError: " + res.text);
+		}
+	});
 });
 
 

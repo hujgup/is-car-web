@@ -24,12 +24,22 @@
 			<h1>Car Front-End Request Creator</h1>
 		</header>
 		<form id="form-global">
-			<fieldset>
-				<legend>Input Mode</legend>
-				<div><input type="radio" id="mode-fields" name="mode" value="fields" checked /><label for="mode-fields"> Seperate Fields</label></div>
-				<div><input type="radio" id="mode-json" name="mode" value="json" /><label for="mode-json"> Raw JSON</label></div>
-			</fieldset>
-			<div><label for="port">Numeric Car ID: </label><input type="number" id="port" min="8080" max="28080" placeholder="8080" /></div>
+			<div>
+				<fieldset>
+					<legend>Car</legend>
+					<div id="cars">
+						<div data-template="cid"><input type="radio" id="car-%CID%" name="car" value="%CID%" data-template-callback="switch-car" /><label for="car-%CID%"> %CID%</label> <button type="button" data-template-callback="remove-btn" data-cid="%CID%">Remove This Car</button></div>
+					</div>
+					<div class="p-space"><button type="button" id="add-car-btn">Add New Car</button></div>
+				</fieldset>
+			</div>
+			<div>
+				<fieldset>
+					<legend>Input Mode</legend>
+					<div><input type="radio" id="mode-fields" name="mode" value="fields" checked /><label for="mode-fields"> Seperate Fields</label></div>
+					<div><input type="radio" id="mode-json" name="mode" value="json" /><label for="mode-json"> Raw JSON</label></div>
+				</fieldset>
+			</div>
 		</form>
 		<form id="form-json">
 			<div><textarea id="input-json" rows="32" cols="56">{

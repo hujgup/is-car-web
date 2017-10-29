@@ -2,34 +2,106 @@
 function getJsonData(area) {
     return JSON.parse(area.value);
 }
-function writeJsonData(area, data) {
-    area.value = Utils.formatJson(data);
+function writeJsonData(area, data, f) {
+    var json = typeof data === "string" ? Utils.expandJson(data) : Utils.formatJson(data);
+    if (f.currentCid !== null) {
+        f.jsonData[f.currentCid] = json;
+    }
+    area.value = json;
+}
+function switchJsonData(area, f) {
+    writeJsonData(area, f.currentCid === null || !f.jsonData.hasOwnProperty(f.currentCid) ? f.defaultJson : f.jsonData[f.currentCid], f);
 }
 var Input;
 (function (Input) {
     var Global;
     (function (Global) {
         function getPort(f) {
-            return parseInt(f.inputPort.value);
+            return f.currentCid !== null ? parseInt(f.currentCid) : -1;
         }
         Global.getPort = getPort;
         function validatePort(port) {
             var res = undefined;
             if (isNaN(port)) {
-                res = "Port number is not a number.";
+                res = "Car ID is not a number.";
             }
             else if (port % 1 !== 0) {
-                res = "Port number must be an integer.";
+                res = "Car ID must be an integer.";
+            }
+            else if (port === -1) {
+                res = "You must choose a car to update. If no cars exist, press the \"Add New Car\" button.";
             }
             else if (port < 8080 || port > 28080) {
-                res = "Port number must be between 8080 and 28080, inclusive.";
+                res = "Car ID must be between 8080 and 28080, inclusive.";
             }
             return res;
         }
         Global.validatePort = validatePort;
+        function carSpool(f, cid, callback) {
+            switchButtonDisabled(f.mutatorButtons, true);
+            var req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080");
+            req.setData({
+                json: JSON.stringify({
+                    action: cid !== null ? "removeCar" : "addCar",
+                    id: cid
+                })
+            });
+            req.execute(function (res) {
+                if (Ajax.responseIsSuccess(res)) {
+                    callback.apply(undefined, arguments);
+                }
+                else if (res.status === 0) {
+                    alert("Error: JADE was not activated, or the provided port number was incorrect.");
+                }
+                else {
+                    alert("Error: " + JSON.parse(res.text).error);
+                }
+                switchButtonDisabled(f.mutatorButtons, false);
+            });
+        }
+        function addCar(f, fields, json, cid) {
+            f.jsonData[cid] = f.defaultJson;
+            f.currentCid = cid;
+            switchDisplayedForm(f, fields, json);
+            Templating.pushTemplate(f.cidTemplate, {
+                CID: cid
+            }, function (id, element, root, parent) {
+                if (id === "remove-btn") {
+                    element.addEventListener("click", function () {
+                        carSpool(f, cid, function (res) {
+                            var jsonRes = JSON.parse(res.text);
+                            if (jsonRes.hasOwnProperty("error")) {
+                                alert(jsonRes.error);
+                            }
+                            else {
+                                delete f.jsonData[cid];
+                                if (f.currentCid === cid) {
+                                    var keys = Object.keys(f.jsonData);
+                                    f.currentCid = keys.length > 0 ? keys[0] : null;
+                                    switchDisplayedForm(f, fields, json);
+                                }
+                                parent.removeChild(root);
+                            }
+                        });
+                    });
+                }
+                else if (id === "switch-car") {
+                    element.addEventListener("change", function () {
+                        f.currentCid = cid;
+                        switchDisplayedForm(f, fields, json);
+                    });
+                }
+            });
+        }
+        Global.addCar = addCar;
         function setupListeners(mode, fields, json, out) {
             mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
             mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
+            mode.addCarButton.addEventListener("click", function () {
+                carSpool(mode, null, function (res) {
+                    addCar(mode, fields, json, res.text);
+                });
+            });
             formSubmit(mode, mode.form, json, "constraints", out);
         }
         Global.setupListeners = setupListeners;
@@ -45,6 +117,7 @@ var Input;
             input.disabled = noChange.checked;
         }
         function switchDisplayedForm(mode, fields, json) {
+            switchJsonData(json, mode);
             if (mode.inputJson.checked) {
                 mode.formJson.style.display = "";
                 mode.formFields.style.display = "none";
@@ -61,7 +134,7 @@ var Input;
                 Templating.killTemplate(fields.utTemplate);
                 var utCheckedValue = jsonData.unavailableTimes === undefined;
                 if (!utCheckedValue) {
-                    jsonData.unavailableTimes.forEach(function (ut) { return Fields.pushUtTemplate(fields.utTemplate, ut, json); });
+                    jsonData.unavailableTimes.forEach(function (ut) { return Fields.pushUtTemplate(fields.utTemplate, ut, json, mode); });
                 }
                 fields.utNoChange.checked = utCheckedValue;
                 fields.utLowValue.disabled = utCheckedValue;
@@ -77,6 +150,11 @@ var Input;
     var Json;
     (function (Json) {
         function setupListeners(mode, f, json, out) {
+            json.addEventListener("change", function () {
+                if (mode.currentCid !== null) {
+                    mode.jsonData[mode.currentCid] = json.value;
+                }
+            });
             formSubmit(mode, f.form, json, "constraints", out);
         }
         Json.setupListeners = setupListeners;
@@ -92,17 +170,17 @@ var Input;
                 callback(value);
             }
         }
-        function changeValue(inEle, outKey, json) {
+        function changeValue(inEle, outKey, json, f) {
             getNum(inEle, function (value) {
                 var jsonData = getJsonData(json);
                 jsonData[outKey] = value;
-                writeJsonData(json, jsonData);
+                writeJsonData(json, jsonData, f);
             });
         }
-        function change(inEle, outKey, dnc, json) {
+        function change(inEle, outKey, dnc, json, f) {
             inEle.addEventListener("change", function () {
                 if (!dnc.checked) {
-                    changeValue(inEle, outKey, json);
+                    changeValue(inEle, outKey, json, f);
                 }
             });
             dnc.addEventListener("change", function () {
@@ -110,10 +188,10 @@ var Input;
                 if (dnc.checked) {
                     var jsonData = getJsonData(json);
                     delete jsonData[outKey];
-                    writeJsonData(json, jsonData);
+                    writeJsonData(json, jsonData, f);
                 }
                 else {
-                    changeValue(inEle, outKey, json);
+                    changeValue(inEle, outKey, json, f);
                 }
             });
         }
@@ -136,7 +214,7 @@ var Input;
             });
             return res;
         }
-        function pushUtTemplate(template, rng, json) {
+        function pushUtTemplate(template, rng, json, f) {
             Templating.pushTemplate(template, {
                 LOW: rng.lowerBound.value,
                 LOW_BRACKET: rng.lowerBound.inclusive ? "[" : "(",
@@ -148,14 +226,14 @@ var Input;
                         var jsonData = getJsonData(json);
                         var jsonArr = jsonData.unavailableTimes;
                         jsonArr.splice(rangeIndex(jsonArr, rng), 1);
-                        writeJsonData(json, jsonData);
+                        writeJsonData(json, jsonData, f);
                         parent.removeChild(root);
                     });
                 }
             });
         }
         Fields.pushUtTemplate = pushUtTemplate;
-        function utSwitchEnable(f, json) {
+        function utSwitchEnable(f, json, fGlobal) {
             f.utLowValue.disabled = f.utNoChange.checked;
             f.utLowInclusive.disabled = f.utNoChange.checked;
             f.utHighValue.disabled = f.utNoChange.checked;
@@ -165,20 +243,20 @@ var Input;
             if (f.utNoChange.checked) {
                 Templating.killTemplate(f.utTemplate);
                 delete jsonData.unavailableTimes;
-                writeJsonData(json, jsonData);
+                writeJsonData(json, jsonData, fGlobal);
             }
             else {
                 jsonData.unavailableTimes = [];
-                writeJsonData(json, jsonData);
+                writeJsonData(json, jsonData, fGlobal);
             }
         }
         function setupListeners(mode, f, json, out) {
-            change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json);
-            change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json);
-            change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json);
-            change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json);
-            change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json);
-            f.utNoChange.addEventListener("change", function () { return utSwitchEnable(f, json); });
+            change(f.gridLoad, "maxGridLoad", f.gridLoadNoChange, json, mode);
+            change(f.currentCharge, "currentCharge", f.currentChargeNoChange, json, mode);
+            change(f.maxCharge, "chargeCapacity", f.maxChargeNoChange, json, mode);
+            change(f.chargeRate, "chargePerHour", f.chargeRateNoChange, json, mode);
+            change(f.chargeDrain, "chargeDrainPerHour", f.chargeDrainNoChange, json, mode);
+            f.utNoChange.addEventListener("change", function () { return utSwitchEnable(f, json, mode); });
             f.utAddButton.addEventListener("click", function () {
                 if (f.utNoChange.checked) {
                     alert("Error: Cannot add an unavailable time range when the Do Not Change checkbox is checked.");
@@ -197,8 +275,8 @@ var Input;
                         };
                         var jsonData = getJsonData(json);
                         jsonData.unavailableTimes.push(rng);
-                        writeJsonData(json, jsonData);
-                        pushUtTemplate(f.utTemplate, rng, json);
+                        writeJsonData(json, jsonData, mode);
+                        pushUtTemplate(f.utTemplate, rng, json, mode);
                     }); });
                 }
             });
@@ -227,7 +305,7 @@ function formSubmit(f, f2, json, action, out) {
             }
             else {
                 try {
-                    switchButtonDisabled(f.buttons, true);
+                    switchButtonDisabled(f.mutatorButtons, true);
                     var req = new Ajax.Request(Ajax.Method.POST, "http://localhost:" + port_1 + "/");
                     var jsonText = void 0;
                     if (action === "constraints") {
@@ -241,10 +319,10 @@ function formSubmit(f, f2, json, action, out) {
                         });
                     }
                     req.setData({
-                        "json": jsonText
+                        json: jsonText
                     });
                     req.execute(function (res) {
-                        switchButtonDisabled(f.buttons, false);
+                        switchButtonDisabled(f.mutatorButtons, false);
                         if (res.status !== 0) {
                             Output.renderResponse(out, port_1, res.status, res.text);
                             //resolve("response/?port=" + port + "&status=" + res.status + "&request=" + encodeURIComponent(jsonText) + "&response=" + encodeURIComponent(res.text));							
@@ -379,16 +457,21 @@ window.addEventListener("DOMContentLoaded", function () {
         form: document.getElementById("form-global"),
         inputJson: document.getElementById("mode-json"),
         inputFields: document.getElementById("mode-fields"),
-        inputPort: document.getElementById("port"),
         formJson: jsonForm.form,
         formFields: fieldsForm.form,
-        buttons: [
+        carsContainer: document.getElementById("cars"),
+        addCarButton: document.getElementById("add-car-btn"),
+        mutatorButtons: [
             document.getElementById("json-submit"),
             document.getElementById("fields-submit"),
             document.getElementById("force-submit"),
             fieldsForm.utAddButton,
-            function () { return ArrayLike.toArray(fieldsForm.utTemplate.source.parentElement.getElementsByTagName("button")); }
-        ]
+            function () { return document.getElementsByTagName("button"); }
+        ],
+        jsonData: {},
+        defaultJson: JSON.parse(jsonForm.text.value),
+        currentCid: null,
+        cidTemplate: masterTemplater.getTemplate("cid")
     };
     var forceForm = document.getElementById("form-force");
     var out = {
@@ -420,4 +503,24 @@ window.addEventListener("DOMContentLoaded", function () {
     formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
     Input.Global.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
     Output.setupListeners(out);
+    switchButtonDisabled(globalForm.mutatorButtons, true);
+    var req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080/");
+    req.setData({
+        json: JSON.stringify({
+            action: "getCars"
+        })
+    });
+    var stdErr = "UI layer is unusable if JADE is not activated. Please start JADE and refresh this page.";
+    req.execute(function (res) {
+        if (Ajax.responseIsSuccess(res)) {
+            JSON.parse(res.text).forEach(function (cid) { return Input.Global.addCar(globalForm, fieldsForm, jsonForm.text, cid); });
+            switchButtonDisabled(globalForm.mutatorButtons, false);
+        }
+        else if (res.status === 0) {
+            alert(stdErr);
+        }
+        else {
+            alert(stdErr + "\nError: " + res.text);
+        }
+    });
 });
