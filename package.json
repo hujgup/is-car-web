@@ -1,0 +1,6 @@
+{
+	"name": "is-car-web",
+	"displayName": "IS Car Scheduler Web Interface",
+	"version": "1.0",
+	"main": "script/electron.js"
+}
