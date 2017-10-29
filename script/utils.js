@@ -130,6 +130,17 @@ var Utils;
             return res;
         }
         Array.fill = fill;
+        function unique(arr, cmp) {
+            var res = [];
+            var exists = cmp ? function (a) { return res.some(function (b) { return cmp(a, b); }); } : function (a) { return res.indexOf(a) >= 0; };
+            arr.forEach(function (item) {
+                if (!exists(item)) {
+                    res.push(item);
+                }
+            });
+            return res;
+        }
+        Array.unique = unique;
     })(Array = Utils.Array || (Utils.Array = {}));
     var Random = (function () {
         function Random() {

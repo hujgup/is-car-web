@@ -133,6 +133,16 @@ namespace Utils {
 			}
 			return res;
 		}
+		export function unique<T>(arr: ReadonlyArray<T>, cmp?: Comparison.Equator<T>): T[] {
+			const res: T[] = [];
+			const exists = cmp ? (a: T) => res.some(b => cmp(a, b)) : (a: T) => res.indexOf(a) >= 0;
+			arr.forEach(item => {
+				if (!exists(item)) {
+					res.push(item);
+				}
+			});
+			return res;
+		}
 	}
 
 	export abstract class Random {

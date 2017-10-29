@@ -59,6 +59,18 @@ var Input;
                 switchButtonDisabled(f.mutatorButtons, false);
             });
         }
+        function removeCar(f, fields, json, cid) {
+            var pc = f.pcData[cid];
+            delete f.jsonData[cid];
+            delete f.pcData[cid];
+            if (f.currentCid === cid) {
+                var keys = Object.keys(f.jsonData);
+                f.currentCid = keys.length > 0 ? keys[0] : null;
+                switchDisplayedForm(f, fields, json);
+            }
+            pc.parent.removeChild(pc.child);
+        }
+        Global.removeCar = removeCar;
         function addCar(f, fields, json, cid) {
             f.jsonData[cid] = f.defaultJson;
             f.currentCid = cid;
@@ -67,6 +79,10 @@ var Input;
                 CID: cid
             }, function (id, element, root, parent) {
                 if (id === "remove-btn") {
+                    f.pcData[cid] = {
+                        parent: parent,
+                        child: root
+                    };
                     element.addEventListener("click", function () {
                         carSpool(f, cid, function (res) {
                             var jsonRes = JSON.parse(res.text);
@@ -74,13 +90,7 @@ var Input;
                                 alert(jsonRes.error);
                             }
                             else {
-                                delete f.jsonData[cid];
-                                if (f.currentCid === cid) {
-                                    var keys = Object.keys(f.jsonData);
-                                    f.currentCid = keys.length > 0 ? keys[0] : null;
-                                    switchDisplayedForm(f, fields, json);
-                                }
-                                parent.removeChild(root);
+                                removeCar(f, fields, json, cid);
                             }
                         });
                     });
@@ -90,6 +100,7 @@ var Input;
                         f.currentCid = cid;
                         switchDisplayedForm(f, fields, json);
                     });
+                    element.checked = true;
                 }
             });
         }
@@ -97,6 +108,7 @@ var Input;
         function setupListeners(mode, fields, json, out) {
             mode.inputJson.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
             mode.inputFields.addEventListener("change", function () { return switchDisplayedForm(mode, fields, json); });
+            mode.syncCarsButton.addEventListener("click", function () { return syncCars(mode, fields, json); });
             mode.addCarButton.addEventListener("click", function () {
                 carSpool(mode, null, function (res) {
                     addCar(mode, fields, json, res.text);
@@ -285,6 +297,51 @@ var Input;
         Fields.setupListeners = setupListeners;
     })(Fields = Input.Fields || (Input.Fields = {}));
 })(Input || (Input = {}));
+function syncCars(globalForm, fieldsForm, json) {
+    switchButtonDisabled(globalForm.mutatorButtons, true);
+    var req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080/");
+    req.setData({
+        json: JSON.stringify({
+            action: "getCars"
+        })
+    });
+    var stdErr = "UI layer is unusable if JADE is not activated. Please start JADE and then press the Sync with JADE button.";
+    req.execute(function (res) {
+        if (Ajax.responseIsSuccess(res)) {
+            var jadeCars_1 = JSON.parse(res.text);
+            var allCars = Utils.Array.unique(Object.keys(globalForm.jsonData).concat(jadeCars_1));
+            var inJade_1;
+            var inUi_1;
+            allCars.forEach(function (cid) {
+                inJade_1 = jadeCars_1.indexOf(cid) >= 0;
+                inUi_1 = globalForm.jsonData.hasOwnProperty(cid);
+                if (inJade_1 && !inUi_1) {
+                    // Should exist, but does not
+                    Input.Global.addCar(globalForm, fieldsForm, json, cid);
+                }
+                else if (inUi_1) {
+                    // Should not exist, but dows
+                    Input.Global.removeCar(globalForm, fieldsForm, json, cid);
+                }
+            });
+            JSON.parse(res.text).forEach(function (cid) {
+            });
+            switchButtonDisabled(globalForm.mutatorButtons, false);
+        }
+        else if (res.status === 0) {
+            globalForm.syncCarsButton.disabled = false;
+            alert(stdErr);
+        }
+        else {
+            globalForm.syncCarsButton.disabled = false;
+            var err = stdErr;
+            if (res.status !== 0) {
+                err += "\nError: " + res.text;
+            }
+            alert(err);
+        }
+    });
+}
 function switchButtonDisabled(btns, disabled) {
     ArrayLike.forEach(btns, function (x) {
         if (typeof x === "function") {
@@ -461,6 +518,7 @@ window.addEventListener("DOMContentLoaded", function () {
         formFields: fieldsForm.form,
         carsContainer: document.getElementById("cars"),
         addCarButton: document.getElementById("add-car-btn"),
+        syncCarsButton: document.getElementById("sync-cars-btn"),
         mutatorButtons: [
             document.getElementById("json-submit"),
             document.getElementById("fields-submit"),
@@ -469,6 +527,7 @@ window.addEventListener("DOMContentLoaded", function () {
             function () { return document.getElementsByTagName("button"); }
         ],
         jsonData: {},
+        pcData: {},
         defaultJson: JSON.parse(jsonForm.text.value),
         currentCid: null,
         cidTemplate: masterTemplater.getTemplate("cid")
@@ -503,24 +562,5 @@ window.addEventListener("DOMContentLoaded", function () {
     formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
     Input.Global.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
     Output.setupListeners(out);
-    switchButtonDisabled(globalForm.mutatorButtons, true);
-    var req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080/");
-    req.setData({
-        json: JSON.stringify({
-            action: "getCars"
-        })
-    });
-    var stdErr = "UI layer is unusable if JADE is not activated. Please start JADE and refresh this page.";
-    req.execute(function (res) {
-        if (Ajax.responseIsSuccess(res)) {
-            JSON.parse(res.text).forEach(function (cid) { return Input.Global.addCar(globalForm, fieldsForm, jsonForm.text, cid); });
-            switchButtonDisabled(globalForm.mutatorButtons, false);
-        }
-        else if (res.status === 0) {
-            alert(stdErr);
-        }
-        else {
-            alert(stdErr + "\nError: " + res.text);
-        }
-    });
+    syncCars(globalForm, fieldsForm, jsonForm.text);
 });

@@ -31,6 +31,7 @@
 						<div data-template="cid"><input type="radio" id="car-%CID%" name="car" value="%CID%" data-template-callback="switch-car" /><label for="car-%CID%"> %CID%</label> <button type="button" data-template-callback="remove-btn" data-cid="%CID%">Remove This Car</button></div>
 					</div>
 					<div class="p-space"><button type="button" id="add-car-btn">Add New Car</button></div>
+					<div class="p-space"><button type="button" id="sync-cars-btn">Sync with JADE</button></div>
 				</fieldset>
 			</div>
 			<div>
@@ -42,7 +43,7 @@
 			</div>
 		</form>
 		<form id="form-json">
-			<div><textarea id="input-json" rows="32" cols="56">{
+			<div><textarea id="input-json" rows="30" cols="56">{
 	"maxGridLoad": 100,
 	"currentCharge": 0,
 	"chargeCapacity": 100,

@@ -31,6 +31,10 @@ function switchJsonData(area: HTMLTextAreaElement, f: Input.Global.Form): void {
 interface FormContainer {
 	readonly form: HTMLFormElement
 }
+interface ParentChild {
+	readonly parent: HTMLElement,
+	readonly child: HTMLElement
+}
 
 namespace Input {
 	export namespace Global {
@@ -42,8 +46,10 @@ namespace Input {
 			readonly formFields: HTMLFormElement,
 			readonly carsContainer: HTMLElement,
 			readonly addCarButton: HTMLButtonElement,
+			readonly syncCarsButton: HTMLButtonElement,
 			readonly mutatorButtons: ButtonSet,
 			readonly jsonData: Utils.Dictionary<string>,
+			readonly pcData: Utils.Dictionary<ParentChild>,
 			readonly defaultJson: string,
 			readonly cidTemplate: Templating.Template,
 			currentCid: string | null
@@ -84,6 +90,17 @@ namespace Input {
 				switchButtonDisabled(f.mutatorButtons, false);
 			});
 		}
+		export function removeCar(f: Form, fields: Fields.Form, json: HTMLTextAreaElement, cid: string): void {
+			const pc = f.pcData[cid];
+			delete f.jsonData[cid];
+			delete f.pcData[cid];
+			if (f.currentCid === cid) {
+				const keys = Object.keys(f.jsonData);
+				f.currentCid = keys.length > 0 ? keys[0] : null;
+				switchDisplayedForm(f, fields, json);
+			}
+			pc.parent.removeChild(pc.child);
+		}
 		export function addCar(f: Form, fields: Fields.Form, json: HTMLTextAreaElement, cid: string): void {
 			f.jsonData[cid] = f.defaultJson;
 			f.currentCid = cid;
@@ -92,19 +109,17 @@ namespace Input {
 				CID: cid
 			}, (id, element: HTMLInputElement, root, parent) => {
 				if (id === "remove-btn") {
+					f.pcData[cid] = {
+						parent: parent,
+						child: root
+					};
 					element.addEventListener("click", () => {
 						carSpool(f, cid, res => {
 							const jsonRes = JSON.parse(res.text);
 							if (jsonRes.hasOwnProperty("error")) {
 								alert(jsonRes.error);
 							} else {
-								delete f.jsonData[cid];
-								if (f.currentCid === cid) {
-									const keys = Object.keys(f.jsonData);
-									f.currentCid = keys.length > 0 ? keys[0] : null;
-									switchDisplayedForm(f, fields, json);
-								}
-								parent.removeChild(root);
+								removeCar(f, fields, json, cid);
 							}
 						});
 					});
@@ -113,12 +128,14 @@ namespace Input {
 						f.currentCid = cid;
 						switchDisplayedForm(f, fields, json);
 					});
+					element.checked = true;
 				}
 			});
 		}
 		export function setupListeners(mode: Form, fields: Fields.Form, json: HTMLTextAreaElement, out: Output.Data) {
 			mode.inputJson.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
 			mode.inputFields.addEventListener("change", () => switchDisplayedForm(mode, fields, json));
+			mode.syncCarsButton.addEventListener("click", () => syncCars(mode, fields, json));
 			mode.addCarButton.addEventListener("click", () => {
 				carSpool(mode, null, res => {
 					addCar(mode, fields, json, res.text);
@@ -319,7 +336,48 @@ namespace Input {
 	}	
 }
 
-function switchButtonDisabled(btns: Input.Global.ButtonSet, disabled: boolean) {
+function syncCars(globalForm: Input.Global.Form, fieldsForm: Input.Fields.Form, json: HTMLTextAreaElement) {
+	switchButtonDisabled(globalForm.mutatorButtons, true);
+	const req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080/");
+	req.setData({
+		json: JSON.stringify({
+			action: "getCars"
+		})
+	});
+	const stdErr = "UI layer is unusable if JADE is not activated. Please start JADE and then press the Sync with JADE button.";
+	req.execute(res => {
+		if (Ajax.responseIsSuccess(res)) {
+			const jadeCars = JSON.parse(res.text) as string[];
+			const allCars = Utils.Array.unique(Object.keys(globalForm.jsonData).concat(jadeCars));
+			let inJade: boolean;
+			let inUi: boolean;
+			allCars.forEach(cid => {
+				inJade = jadeCars.indexOf(cid) >= 0;
+				inUi = globalForm.jsonData.hasOwnProperty(cid);
+				if (inJade && !inUi) {
+					// Should exist, but does not
+					Input.Global.addCar(globalForm, fieldsForm, json, cid)
+				} else if (inUi) {
+					// Should not exist, but dows
+					Input.Global.removeCar(globalForm, fieldsForm, json, cid);
+				}
+			});
+			(JSON.parse(res.text) as string[]).forEach(cid => {
+			});
+			switchButtonDisabled(globalForm.mutatorButtons, false);
+		} else if (res.status === 0) {
+			globalForm.syncCarsButton.disabled = false;
+			alert(stdErr);
+		} else {
+			globalForm.syncCarsButton.disabled = false;
+			let err = stdErr;
+			if (res.status !== 0) {
+				err += "\nError: " + res.text;
+			}
+			alert(err);
+		}
+	});
+}function switchButtonDisabled(btns: Input.Global.ButtonSet, disabled: boolean) {
 	ArrayLike.forEach(btns, x => {
 		if (typeof x === "function") {
 			switchButtonDisabled(x(), disabled);
@@ -515,6 +573,7 @@ window.addEventListener("DOMContentLoaded", () => {
 		formFields: fieldsForm.form,
 		carsContainer: document.getElementById("cars") as HTMLElement,
 		addCarButton: document.getElementById("add-car-btn") as HTMLButtonElement,
+		syncCarsButton: document.getElementById("sync-cars-btn") as HTMLButtonElement,
 		mutatorButtons: [
 			document.getElementById("json-submit") as HTMLInputElement,
 			document.getElementById("fields-submit") as HTMLInputElement,
@@ -523,6 +582,7 @@ window.addEventListener("DOMContentLoaded", () => {
 			() => document.getElementsByTagName("button")
 		],
 		jsonData: {},
+		pcData: {},
 		defaultJson: JSON.parse(jsonForm.text.value),
 		currentCid: null,
 		cidTemplate: masterTemplater.getTemplate("cid") as Templating.Template
@@ -559,24 +619,7 @@ window.addEventListener("DOMContentLoaded", () => {
 	formSubmit(globalForm, forceForm, jsonForm.text, "negotiate", out);
 	Input.Global.switchDisplayedForm(globalForm, fieldsForm, jsonForm.text);
 	Output.setupListeners(out);
-	switchButtonDisabled(globalForm.mutatorButtons, true);
-	const req = new Ajax.Request(Ajax.Method.GET, "http://localhost:8080/");
-	req.setData({
-		json: JSON.stringify({
-			action: "getCars"
-		})
-	});
-	const stdErr = "UI layer is unusable if JADE is not activated. Please start JADE and refresh this page.";
-	req.execute(res => {
-		if (Ajax.responseIsSuccess(res)) {
-			(JSON.parse(res.text) as string[]).forEach(cid => Input.Global.addCar(globalForm, fieldsForm, jsonForm.text, cid));
-			switchButtonDisabled(globalForm.mutatorButtons, false);
-		} else if (res.status === 0) {
-			alert(stdErr);
-		} else {
-			alert(stdErr + "\nError: " + res.text);
-		}
-	});
+	syncCars(globalForm, fieldsForm, jsonForm.text);
 });
 
 
